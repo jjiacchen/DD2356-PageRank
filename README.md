@@ -2,8 +2,8 @@
 **Group 26**: Jiachen Shi, Minyi Zhu, Pengyu Wang
 
 ## Structure
-- `serial/`  – Serial C baseline + profiling scripts (Jiachen)
-- `verify/`  – Correctness verification framework (Jiachen)
+- `serial/`  – Serial C baseline + profiling scripts 
+- `verify/`  – Correctness verification framework 
 - `data/`    – Course-provided graph datasets
 
 ## Build & Run
