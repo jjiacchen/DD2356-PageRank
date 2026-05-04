@@ -1,5 +1,5 @@
 # DD2356 Final Project – High-Performance PageRank
-**Group 26**: Jiachen Shi, Minyi Zhu, Pengyu Wang
+**Group 26**
 
 ## Structure
 - `serial/`  – Serial C baseline + profiling scripts 
