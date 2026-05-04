@@ -1,0 +1,9 @@
+# 编译产物
+serial/pagerank_serial
+serial/pagerank_serial_pg
+verify/verify
+*.o
+gmon.out
+cachegrind.out.*
+pagerank_serial_output.txt
+.DS_Store
