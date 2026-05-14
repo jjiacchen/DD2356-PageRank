@@ -91,6 +91,7 @@ typedef struct {
     int *row_ptr;    /* 入边范围: row_ptr[v]..row_ptr[v+1]-1 */
     int *col_idx;    /* 入边源节点列表                        */
     int *out_degree; /* 出度                                  */
+    double *inv_out_degree; /* 预计算 1/out_degree */
 } CSRGraph;
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -180,6 +181,7 @@ CSRGraph *load_csv(const char *filename, int directed, NodeMap *nm) {
     CSRGraph *g   = malloc(sizeof(CSRGraph));
     g->n_nodes    = N; g->n_edges = M;
     g->out_degree = calloc(N, sizeof(int));
+    g->inv_out_degree = calloc(N, sizeof(double));
     g->row_ptr    = calloc(N+1, sizeof(int));
     g->col_idx    = malloc(M ? M * sizeof(int) : 1);
 
@@ -191,6 +193,8 @@ CSRGraph *load_csv(const char *filename, int directed, NodeMap *nm) {
     g->row_ptr[0] = 0;
     for (int i = 0; i < N; i++)
         g->row_ptr[i+1] = g->row_ptr[i] + in_cnt[i];
+    for (int i = 0; i < N; i++)
+        g->inv_out_degree[i] = g->out_degree[i] ? 1.0 / (double)g->out_degree[i] : 0.0;
 
     int *pos = calloc(N, sizeof(int));
     for (int i = 0; i < M; i++) {
@@ -203,7 +207,7 @@ CSRGraph *load_csv(const char *filename, int directed, NodeMap *nm) {
 }
 
 void free_graph(CSRGraph *g) {
-    free(g->row_ptr); free(g->col_idx); free(g->out_degree); free(g);
+    free(g->row_ptr); free(g->col_idx); free(g->out_degree); free(g->inv_out_degree); free(g);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -238,7 +242,7 @@ double *pagerank(const CSRGraph *g,
             double s = 0.0;
             for (int k = g->row_ptr[v]; k < g->row_ptr[v+1]; k++) {
                 int u = g->col_idx[k];
-                s += pr[u] / (double)g->out_degree[u];
+                s += pr[u] * g->inv_out_degree[u];
             }
             pr_new[v] = base + dang + damping * s;
         }
