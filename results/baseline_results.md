@@ -49,6 +49,25 @@
 
 ---
 
+## Runtime Results – synthetic_large_directed.csv（大图性能测试）
+**directed · 100000 nodes · 2000000 edges · estimated hot working set 10.68 MiB**
+
+| 指标 | Colab | KTH集群 | Dardel |
+|------|-------|---------|--------|
+| PR time (s) | 0.156453 | 0.039875 | 0.089340 |
+| Iterations | 16 | 16 | 16 |
+| MEdges/s | 204.5 | 802.5 | 358.2 |
+| vs Colab 加速比 | 1.0× | 3.92× | 1.75× |
+
+**说明**：
+
+- 大图由 `scripts/generate_large_graph.py` 生成，三个平台使用相同规模：100000 nodes 和 2000000 directed edges。
+- 该数据集用于性能和扩展性分析，不替代小图 correctness suite。
+- 相比 `polblogs`，大图每次 PageRank 运行访问 `2,000,000 × 16 = 32M` 条边，计时更稳定，也更能反映 cache/DRAM 访存行为。
+- KTH 在大图 serial 上仍然最快，主要来自更强的单核性能和内存层次表现；Dardel 快于 Colab，但单核 serial 表现弱于 KTH。
+
+---
+
 ## Correctness Verification ✓
 
 - 全部 9 个数据集，三个平台，PR sum = 1.0000000000 ✓
@@ -59,8 +78,9 @@
 
 ## Key Observations（报告用）
 
-1. **KTH集群最快**：主频 3.80GHz 最高，serial 单核跑主频决定一切
-2. **Dardel load time 偏高**：Lustre 分布式文件系统延迟高，正常现象
-3. **小图 I/O 是瓶颈**：小图 load time >> PR time，并行化收益有限
-4. **Iterations 三平台一致**：算法正确，结果可重现
-5. **Serial baseline 是 speedup 分母**：polblogs PR time 各平台 0.0174 / 0.0024 / 0.0035s
+1. **小图用于 correctness， 大图用于 performance**：课程数据集运行快、便于验证；`synthetic_large_directed` 更适合观察真实性能差异。
+2. **KTH集群 serial 最快**：`polblogs` 上 KTH 比 Colab 快 5.4×，大图上快 3.92×。
+3. **Dardel serial 快于 Colab，但弱于 KTH**：大图上 Dardel 比 Colab 快 1.75×，但单核 PR time 仍高于 KTH。
+4. **小图 I/O 和计时噪声占比高**：`polblogs` load time 在 Colab 和 Dardel 上占比较高，parallel speedup 应优先看 PR time 而不是 end-to-end time。
+5. **Iterations 三平台一致**：小图和大图的迭代次数在三个平台一致，说明 serial 结果可复现。
+6. **Serial baseline 是 speedup 分母**：并行版本应分别和同平台 serial PR time 比较，不能跨平台混用分母。
