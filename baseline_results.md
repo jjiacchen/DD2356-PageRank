@@ -1,5 +1,5 @@
 # Baseline Profiling Results – Serial PageRank
-**DD2356 Group 26**
+**DD2356 Group 26**: Jiachen Shi, Minyi Zhu, Pengyu Wang
 
 ---
 
