@@ -1,2 +1,16 @@
-perf unavailable on Mac (Darwin 25.3.0).
-Re-run on KTH or Dardel to populate.
+
+ Performance counter stats for '/home/jovyan/DD2356-PageRank/serial/pagerank_serial /home/jovyan/DD2356-PageRank/data/polblogs.csv directed':
+
+        2803834129      cycles                                                      
+        9276160471      instructions              #    3.31  insn per cycle         
+             93591      cache-references                                            
+             60515      cache-misses              #   64.659 % of all cache refs    
+          19578332      L1-dcache-load-misses                                       
+             11570      LLC-load-misses                                             
+
+       0.745452559 seconds time elapsed
+
+       0.745347000 seconds user
+       0.000000000 seconds sys
+
+
