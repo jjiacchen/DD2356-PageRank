@@ -13,6 +13,9 @@
  *   ./pagerank_serial <csv_file> directed   [damping=0.85] [tol=1e-10] [max_iter=1000]
  *   ./pagerank_serial <csv_file> undirected [damping=0.85] [tol=1e-10] [max_iter=1000]
  *
+ * Profiling 放大 (gprof/perf 采样,不影响 baseline):
+ *   PR_REPEAT=500 ./pagerank_serial data/polblogs.csv directed
+ *
  * 示例:
  *   ./pagerank_serial data/polblogs.csv    directed
  *   ./pagerank_serial data/dolphins.csv    undirected
@@ -336,18 +339,34 @@ int main(int argc, char *argv[]) {
     printf("Edges     : %d\n", g->n_edges);
     printf("Load time : %.4f s\n\n", load_t);
 
-    /* 运行 PageRank */
+    /* 运行 PageRank
+     * PR_REPEAT 环境变量：重复执行 PR 内核,用于 gprof/perf 采样放大
+     * (默认 1,baseline 行为完全不变) */
+    const char *rep_env = getenv("PR_REPEAT");
+    int repeat = rep_env ? atoi(rep_env) : 1;
+    if (repeat < 1) repeat = 1;
+
     int iters = 0;
+    double *pr = NULL;
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    double *pr = pagerank(g, damping, tol, max_iter, &iters);
+    for (int r = 0; r < repeat; r++) {
+        if (pr) free(pr);
+        pr = pagerank(g, damping, tol, max_iter, &iters);
+    }
     clock_gettime(CLOCK_MONOTONIC, &t1);
-    double pr_t = (t1.tv_sec-t0.tv_sec) + (t1.tv_nsec-t0.tv_nsec)*1e-9;
+    double pr_t_total = (t1.tv_sec-t0.tv_sec) + (t1.tv_nsec-t0.tv_nsec)*1e-9;
+    double pr_t = pr_t_total / repeat;
 
     double sum = 0.0;
     for (int i = 0; i < g->n_nodes; i++) sum += pr[i];
 
     printf("Iterations : %d\n", iters);
-    printf("PR time    : %.6f s\n", pr_t);
+    if (repeat > 1) {
+        printf("PR repeats : %d  (PR_REPEAT)\n", repeat);
+        printf("PR time    : %.6f s  (per-run avg, total %.6f s)\n", pr_t, pr_t_total);
+    } else {
+        printf("PR time    : %.6f s\n", pr_t);
+    }
     printf("PR sum     : %.10f  (should be ~1.0)\n", sum);
 
     print_top_k(pr, &nm, 10);
