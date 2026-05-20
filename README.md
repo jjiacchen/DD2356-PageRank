@@ -86,6 +86,27 @@ gcc -O2 -o verify/verify verify/verify_correctness.c -lm
 ./scripts/run_scaling_local.sh
 ```
 
+## Large-Graph Performance Dataset
+The course graphs stay as the default correctness suite. For scalability
+experiments, generate a deterministic large directed graph:
+
+```bash
+./scripts/generate_large_graph.py
+./scripts/run_scaling_large.sh
+```
+
+For a serial-only baseline on any platform, disable the OpenMP section:
+
+```bash
+RUN_OPENMP=0 ./scripts/run_scaling_large.sh
+```
+
+Default large graph: `100000` nodes, `2000000` directed edges, written to
+`data/synthetic_large_directed.csv`. The estimated PageRank hot working set is
+about `10.68 MiB`, so it exercises cache/DRAM behavior better than the small
+course graphs. Run the large-graph scaling script on Colab, KTH and Dardel for
+platform comparisons. Generated large CSV/reference/result files are ignored by git.
+
 ## MPI / Hybrid (cluster)
 ```bash
 mpirun -np 4 mpi/pagerank_mpi data/polblogs.csv directed

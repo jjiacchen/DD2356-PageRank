@@ -31,6 +31,15 @@ This file maps directly to proposal milestones and the implemented scripts.
 - GPU prototype run: `openmp/pagerank_openmp_gpu data/polblogs.csv directed`
 - Compare with CPU outputs via `verify/verify`.
 
+## Large-graph performance suite
+
+- Generate deterministic large graph: `scripts/generate_large_graph.py`
+- Default graph: `data/synthetic_large_directed.csv` with 100000 nodes and 2000000 directed edges.
+- Generate serial reference only when needed: `scripts/generate_large_reference.sh`
+- Local OpenMP scaling on the large graph: `scripts/run_scaling_large.sh`
+- Run the same large-graph scaling script on Colab, KTH and Dardel for platform comparisons.
+- Keep the existing small datasets for correctness; use the large graph for performance/scalability claims.
+
 ## W6 Consolidation
 
 - Baselines: `results/baseline_results.md`

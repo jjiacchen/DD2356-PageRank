@@ -18,3 +18,8 @@ results/mpi_scaling_*.csv
 __pycache__/
 tools/__pycache__/
 .DS_Store
+
+# Generated large performance datasets/references
+data/synthetic_large_*.csv
+references/synthetic_large_*_serial.txt
+results/scaling_large.md
