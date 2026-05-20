@@ -35,15 +35,15 @@ Main dataset:
 | openmp | colab | threads=? |  |  |  |  |  |
 | openmp | kth | threads=? |  |  |  |  |  |
 | openmp | dardel | threads=? |  |  |  |  |  |
-| mpi | local | ranks=? |  |  |  |  |  |
+| mpi | local | ranks=4 | 0.0010 | 0.004730 | 108 | 0.41 | 0.10 |
 | mpi | colab | ranks=? |  |  |  |  |  |
 | mpi | kth | ranks=? |  |  |  |  |  |
-| mpi | dardel | ranks=? |  |  |  |  |  |
+| mpi | dardel | ranks=16 | 0.0108 | 14.060021 | 108 | 0.000246 | 0.000015 |
 | hybrid | local | ranks=? x threads=? |  |  |  |  |  |
 | hybrid | colab | ranks=? x threads=? |  |  |  |  |  |
 | hybrid | kth | ranks=? x threads=? |  |  |  |  |  |
 | hybrid | dardel | ranks=? x threads=? |  |  |  |  |  |
-| gpu | local | omp-target |  |  |  |  |  |
+| gpu | local | omp-target | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
 | gpu | colab | omp-target |  |  |  |  |  |
 | gpu | kth | omp-target |  |  |  |  |  |
 | gpu | dardel | omp-target |  |  |  |  |  |
@@ -58,9 +58,9 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 |---|---|---|---|---|---:|---:|---:|---:|---:|---|
 | polblogs.csv | directed | local | serial | 1 thread | 1224 | 19090 | 0.001943 | 108 | 1.0000000000 | Reference |
 | polblogs.csv | directed | local | openmp | threads=8 | 1224 | 19090 | 0.003797 | 108 | 1.0000000000 | PASS |
-| polblogs.csv | directed | local | mpi | ranks=4 | 1224 | 19090 |  |  |  | PASS/FAIL |
+| polblogs.csv | directed | local | mpi | ranks=4 | 1224 | 19090 | 0.004730 | 108 | 1.0000000000 | PASS |
 | polblogs.csv | directed | local | hybrid | ranks=2 x threads=4 | 1224 | 19090 |  |  |  | PASS/FAIL |
-| polblogs.csv | directed | local | gpu | omp-target | 1224 | 19090 | TBD | 108 | 1.0000000000 | PASS |
+| polblogs.csv | directed | local | gpu | omp-target | 1224 | 19090 | 0.053566 | 108 | 1.0000000000 | PASS |
 | karateDir.csv | directed | local | openmp/gpu | see verify matrix | 34 | 78 | TBD | 22 | 1.0000000000 | PASS |
 | lesmisDir.csv | directed | local | openmp/gpu | see verify matrix | 77 | 254 | TBD | 36 | 1.0000000000 | PASS |
 | dolphinsDir.csv | directed | local | openmp/gpu | see verify matrix | 62 | 159 | TBD | 29 | 1.0000000000 | PASS |
@@ -93,18 +93,18 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 ### 3.2 MPI Strong Scaling (fixed dataset)
 | Platform | Dataset | Ranks | PR time (s) | Speedup vs 1 rank | Efficiency (= speedup / ranks) |
 |---|---|---:|---:|---:|---:|
-| local | polblogs.csv | 1 |  | 1.00 | 1.00 |
-| local | polblogs.csv | 2 |  |  |  |
-| local | polblogs.csv | 4 |  |  |  |
+| local | polblogs.csv | 1 | 0.001234 | 1.00 | 1.00 |
+| local | polblogs.csv | 2 | 0.004863 | 0.253753 | 0.126876 |
+| local | polblogs.csv | 4 | 0.004730 | 0.260888 | 0.065222 |
 | kth | polblogs.csv | 1 |  | 1.00 | 1.00 |
 | kth | polblogs.csv | 2 |  |  |  |
 | kth | polblogs.csv | 4 |  |  |  |
 | kth | polblogs.csv | 8 |  |  |  |
-| dardel | polblogs.csv | 1 |  | 1.00 | 1.00 |
-| dardel | polblogs.csv | 2 |  |  |  |
-| dardel | polblogs.csv | 4 |  |  |  |
-| dardel | polblogs.csv | 8 |  |  |  |
-| dardel | polblogs.csv | 16 |  |  |  |
+| dardel | polblogs.csv | 1 | 0.003410 | 1.00 | 1.00 |
+| dardel | polblogs.csv | 2 | 7.930667 | 0.000430 | 0.000215 |
+| dardel | polblogs.csv | 4 | 7.924683 | 0.000430 | 0.000108 |
+| dardel | polblogs.csv | 8 | 10.368678 | 0.000329 | 0.000041 |
+| dardel | polblogs.csv | 16 | 14.060021 | 0.000243 | 0.000015 |
 
 ### 3.3 Hybrid Fixed-Core Search (P x N)
 | Platform | Dataset | Total cores | (P ranks, N threads) | PR time (s) | Best? |
@@ -128,4 +128,6 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 - Local OpenMP scaling data: `results/scaling_local.md`
 - Correctness matrix (OpenMP/GPU): `results/verification_matrix.md`
 - Serial hotspot context: `results/hotspot_notes.md`, `results/gprof_polblogs.txt`, `results/perf_stat_polblogs.txt`
-- MPI/Hybrid cluster runs: `scripts/run_mpi_cluster.sh` -> `results/scaling_cluster.md` (to be generated on MPI-enabled machine)
+- MPI local and Dardel runs: `results/mpi_scaling_polblogs_directed.csv`, `results/mpi_scaling_dardel_course_polblogs_directed.csv`
+- Hybrid fixed-core runs: `mpi/profile_hybrid.sh` -> `results/hybrid_fixedcore_<dataset>_<mode>.csv`
+- School-cluster MPI/Hybrid runs: `run_mpi_cluster.sh` -> result CSV files to be generated on an MPI-enabled cluster

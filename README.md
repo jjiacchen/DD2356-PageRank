@@ -37,18 +37,31 @@ REPEAT=5 ./mpi/profile_mpi.sh data/polblogs.csv directed "1 2 4 8"
 MPI_RUNNER=srun MPI_NP_FLAG=-n ./mpi/profile_mpi.sh data/polblogs.csv directed "1 2 4"
 ```
 
+## Hybrid Fixed-Core Profile
+```bash
+./mpi/profile_hybrid.sh data/polblogs.csv directed "1x4 2x2 4x1"
+```
+
+The Hybrid profiler builds the serial baseline, Hybrid MPI+OpenMP binary, and verifier; then it writes `results/hybrid_fixedcore_*.csv`. On Open MPI wrappers that default to Apple clang, use:
+```bash
+CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 ./mpi/profile_hybrid.sh data/polblogs.csv directed "1x4 2x2 4x1"
+```
+
 ## Wang MPI Workflow Before Cluster Runs
 ```bash
 # 1. Check correctness across all course datasets
 ./mpi/test_mpi_all.sh
 
-# 2. Generate larger synthetic graphs for meaningful scaling
+# 2. Run fixed-core Hybrid smoke/profile combos
+CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 ./mpi/profile_hybrid.sh data/polblogs.csv directed "1x4 2x2 4x1"
+
+# 3. Generate larger synthetic graphs for meaningful scaling
 python3 tools/generate_graph.py --preset all
 
-# 3. Run a local or cluster scaling profile
+# 4. Run a local or cluster scaling profile
 REPEAT=3 ./mpi/profile_mpi.sh data/synthetic/synthetic_10k_100k.csv directed "1 2 4"
 
-# 4. Generate result figures from summary CSV files
+# 5. Generate result figures from summary CSV files
 python3 tools/plot_mpi_results.py results/mpi_scaling_synthetic_10k_100k_directed.csv --out-dir results/figures
 ```
 

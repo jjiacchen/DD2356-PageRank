@@ -151,7 +151,7 @@ static void free_graph(CSRGraph *g) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        printf("Usage: %s <csv_file> <directed|undirected> [damping=0.85] [tol=1e-10] [max_iter=1000]\n", argv[0]);
+        printf("Usage: %s <csv_file> <directed|undirected> [damping=0.85] [tol=1e-10] [max_iter=1000] [output=pagerank_gpu_output.txt]\n", argv[0]);
         return 1;
     }
     const char *filename = argv[1];
@@ -159,8 +159,11 @@ int main(int argc, char **argv) {
     double damping = (argc > 3) ? atof(argv[3]) : 0.85;
     double tol = (argc > 4) ? atof(argv[4]) : 1e-10;
     int max_iter = (argc > 5) ? atoi(argv[5]) : 1000;
+    const char *out_file = (argc > 6) ? argv[6] : "pagerank_gpu_output.txt";
 
+    double t_load0 = omp_get_wtime();
     CSRGraph *g = load_csv(filename, directed);
+    double load_t = omp_get_wtime() - t_load0;
     int N = g->n_nodes;
 
     double *pr = malloc(N * sizeof(double));
@@ -170,6 +173,7 @@ int main(int argc, char **argv) {
     double base = (1.0 - damping) / N;
     int iters = 0;
 
+    double t_pr0 = omp_get_wtime();
     for (int iter = 0; iter < max_iter; iter++) {
         double dangling = 0.0;
 #pragma omp target teams distribute parallel for map(to:pr[0:N], g->out_degree[0:N]) reduction(+:dangling)
@@ -194,19 +198,26 @@ int main(int argc, char **argv) {
         iters = iter + 1;
         if (diff < tol) break;
     }
+    double pr_t = omp_get_wtime() - t_pr0;
 
     double sum = 0.0;
     for (int i = 0; i < N; i++) sum += pr[i];
     printf("=== OpenMP Target PageRank ===\n");
+    printf("File       : %s\n", filename);
+    printf("Mode       : %s\n", directed ? "directed" : "undirected");
     printf("Nodes      : %d\n", N);
+    printf("Edges      : %d\n", g->n_edges);
+    printf("Load time  : %.6f s\n", load_t);
     printf("Iterations : %d\n", iters);
+    printf("PR time    : %.6f s\n", pr_t);
+    printf("Total time : %.6f s\n", load_t + pr_t);
     printf("PR sum     : %.10f\n", sum);
 
-    FILE *fp = fopen("pagerank_gpu_output.txt", "w");
+    FILE *fp = fopen(out_file, "w");
     if (fp) {
         for (int i = 0; i < N; i++) fprintf(fp, "%s %.15e\n", g->names[i], pr[i]);
         fclose(fp);
-        printf("Results saved: pagerank_gpu_output.txt\n");
+        printf("Results saved: %s\n", out_file);
     }
 
     free(pr);

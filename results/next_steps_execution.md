@@ -23,6 +23,9 @@ This file maps directly to proposal milestones and the implemented scripts.
   - `OMP_NUM_THREADS=4 mpirun -np 2 mpi/pagerank_hybrid data/polblogs.csv directed 4`
   - `OMP_NUM_THREADS=2 mpirun -np 4 mpi/pagerank_hybrid data/polblogs.csv directed 2`
 - Verify each result with `verify/verify`.
+- Automated fixed-core profile:
+  - `./mpi/profile_hybrid.sh data/polblogs.csv directed "1x8 2x4 4x2 8x1"`
+  - On local Open MPI + Apple clang wrappers: `CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 ./mpi/profile_hybrid.sh data/polblogs.csv directed "1x4 2x2 4x1"`
 
 ## W5 Optimization + GPU offload
 

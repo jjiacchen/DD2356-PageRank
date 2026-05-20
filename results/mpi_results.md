@@ -199,6 +199,8 @@ These plots were regenerated from the Dardel CSV files after the run.
 - [x] Synthetic graph generator.
 - [x] Dardel and school-cluster submission scripts.
 - [x] Plotting pipeline for speedup, efficiency, runtime breakdown, communication fraction, and workload balance.
+- [x] Hybrid fixed-core profiling script.
 - [x] Final Dardel measurements.
 - [ ] Final school-cluster measurements.
+- [ ] Final Hybrid fixed-core measurements on Dardel or school cluster.
 - [x] Replace local smoke-test figures with Dardel figures.
