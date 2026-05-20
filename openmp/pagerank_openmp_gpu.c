@@ -1,13 +1,13 @@
 /*
- * pagerank_mpi.c
- * MPI PageRank with edge partitioning by destination node range.
+ * pagerank_openmp_gpu.c
+ * OpenMP target offload prototype for comparison with CPU paths.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <mpi.h>
+#include <omp.h>
 
 #define MAX_NODES 100000
 #define NAME_LEN 64
@@ -22,7 +22,6 @@ typedef struct StrEntry {
 static StrEntry *sht[SHT_SIZE];
 static StrEntry sht_pool[MAX_NODES];
 static int sht_used = 0;
-
 static void sht_clear(void) { memset(sht, 0, sizeof(sht)); sht_used = 0; }
 static unsigned str_hash(const char *s) {
     unsigned h = 5381;
@@ -90,34 +89,27 @@ static int parse_line(const char *line, char *na, char *nb) {
     return na[0] && nb[0];
 }
 
-static CSRGraph *load_csv_root(const char *filename, int directed) {
+static CSRGraph *load_csv(const char *filename, int directed) {
     FILE *fp = fopen(filename, "r");
     if (!fp) { perror(filename); exit(1); }
     sht_clear();
     int next_id = 0;
     IntVec srcs = {0}, dsts = {0};
     char line[512], na[NAME_LEN], nb[NAME_LEN];
-
     while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\r\n")] = 0;
         if (!line[0]) continue;
         if (!parse_line(line, na, nb)) continue;
         int ia = sht_get_or_insert(na, &next_id);
         int ib = sht_get_or_insert(nb, &next_id);
-        iv_push(&srcs, ia);
-        iv_push(&dsts, ib);
-        if (!directed) {
-            iv_push(&srcs, ib);
-            iv_push(&dsts, ia);
-        }
+        iv_push(&srcs, ia); iv_push(&dsts, ib);
+        if (!directed) { iv_push(&srcs, ib); iv_push(&dsts, ia); }
     }
     fclose(fp);
 
-    int N = next_id;
-    int M = srcs.size;
+    int N = next_id, M = srcs.size;
     CSRGraph *g = malloc(sizeof(CSRGraph));
-    g->n_nodes = N;
-    g->n_edges = M;
+    g->n_nodes = N; g->n_edges = M;
     g->row_ptr = calloc(N + 1, sizeof(int));
     g->out_degree = calloc(N, sizeof(int));
     g->inv_out_degree = calloc(N, sizeof(double));
@@ -138,42 +130,14 @@ static CSRGraph *load_csv_root(const char *filename, int directed) {
     }
     for (int i = 0; i < N; i++) g->row_ptr[i + 1] = g->row_ptr[i] + in_cnt[i];
     for (int i = 0; i < N; i++) g->inv_out_degree[i] = g->out_degree[i] ? 1.0 / (double) g->out_degree[i] : 0.0;
-
     int *pos = calloc(N, sizeof(int));
     for (int i = 0; i < M; i++) {
         int d = dsts.data[i];
         g->col_idx[g->row_ptr[d] + pos[d]++] = srcs.data[i];
     }
 
-    free(srcs.data);
-    free(dsts.data);
-    free(in_cnt);
-    free(pos);
+    free(srcs.data); free(dsts.data); free(in_cnt); free(pos);
     return g;
-}
-
-static void broadcast_graph(CSRGraph **g_ptr, int rank, MPI_Comm comm) {
-    CSRGraph *g = *g_ptr;
-    int N, M;
-    if (rank == 0) { N = g->n_nodes; M = g->n_edges; }
-    MPI_Bcast(&N, 1, MPI_INT, 0, comm);
-    MPI_Bcast(&M, 1, MPI_INT, 0, comm);
-    if (rank != 0) {
-        g = malloc(sizeof(CSRGraph));
-        g->n_nodes = N;
-        g->n_edges = M;
-        g->row_ptr = malloc((N + 1) * sizeof(int));
-        g->out_degree = malloc(N * sizeof(int));
-        g->inv_out_degree = malloc(N * sizeof(double));
-        g->col_idx = malloc((M > 0 ? M : 1) * sizeof(int));
-        g->names = malloc(N * NAME_LEN);
-    }
-    MPI_Bcast(g->row_ptr, N + 1, MPI_INT, 0, comm);
-    MPI_Bcast(g->out_degree, N, MPI_INT, 0, comm);
-    MPI_Bcast(g->inv_out_degree, N, MPI_DOUBLE, 0, comm);
-    MPI_Bcast(g->col_idx, M, MPI_INT, 0, comm);
-    MPI_Bcast(g->names, N * NAME_LEN, MPI_CHAR, 0, comm);
-    *g_ptr = g;
 }
 
 static void free_graph(CSRGraph *g) {
@@ -185,39 +149,19 @@ static void free_graph(CSRGraph *g) {
     free(g);
 }
 
-static void owner_range(int N, int size, int rank, int *begin, int *end) {
-    int q = N / size, r = N % size;
-    *begin = rank * q + (rank < r ? rank : r);
-    *end = *begin + q + (rank < r ? 1 : 0);
-}
-
 int main(int argc, char **argv) {
-    MPI_Init(&argc, &argv);
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
     if (argc < 3) {
-        if (rank == 0) {
-            printf("Usage: %s <csv_file> <directed|undirected> [damping=0.85] [tol=1e-10] [max_iter=1000]\n", argv[0]);
-        }
-        MPI_Finalize();
+        printf("Usage: %s <csv_file> <directed|undirected> [damping=0.85] [tol=1e-10] [max_iter=1000]\n", argv[0]);
         return 1;
     }
-
     const char *filename = argv[1];
     int directed = (strcmp(argv[2], "directed") == 0);
     double damping = (argc > 3) ? atof(argv[3]) : 0.85;
     double tol = (argc > 4) ? atof(argv[4]) : 1e-10;
     int max_iter = (argc > 5) ? atoi(argv[5]) : 1000;
 
-    CSRGraph *g = NULL;
-    if (rank == 0) g = load_csv_root(filename, directed);
-    broadcast_graph(&g, rank, MPI_COMM_WORLD);
-
+    CSRGraph *g = load_csv(filename, directed);
     int N = g->n_nodes;
-    int begin, end;
-    owner_range(N, size, rank, &begin, &end);
 
     double *pr = malloc(N * sizeof(double));
     double *pr_new = malloc(N * sizeof(double));
@@ -225,15 +169,15 @@ int main(int argc, char **argv) {
 
     double base = (1.0 - damping) / N;
     int iters = 0;
-    double t0 = MPI_Wtime();
-    for (int iter = 0; iter < max_iter; iter++) {
-        double dangling_local = 0.0;
-        for (int i = begin; i < end; i++) if (g->out_degree[i] == 0) dangling_local += pr[i];
-        double dangling = 0.0;
-        MPI_Allreduce(&dangling_local, &dangling, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        double dang = damping * dangling / N;
 
-        for (int v = begin; v < end; v++) {
+    for (int iter = 0; iter < max_iter; iter++) {
+        double dangling = 0.0;
+#pragma omp target teams distribute parallel for map(to:pr[0:N], g->out_degree[0:N]) reduction(+:dangling)
+        for (int i = 0; i < N; i++) if (g->out_degree[i] == 0) dangling += pr[i];
+
+        double dang = damping * dangling / N;
+#pragma omp target teams distribute parallel for map(to:pr[0:N], g->row_ptr[0:N+1], g->col_idx[0:g->n_edges], g->inv_out_degree[0:N]) map(from:pr_new[0:N])
+        for (int v = 0; v < N; v++) {
             double s = 0.0;
             for (int k = g->row_ptr[v]; k < g->row_ptr[v + 1]; k++) {
                 int u = g->col_idx[k];
@@ -242,50 +186,31 @@ int main(int argc, char **argv) {
             pr_new[v] = base + dang + damping * s;
         }
 
-        double diff_local = 0.0;
-        for (int i = begin; i < end; i++) diff_local += fabs(pr_new[i] - pr[i]);
         double diff = 0.0;
-        MPI_Allreduce(&diff_local, &diff, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+#pragma omp parallel for reduction(+:diff)
+        for (int i = 0; i < N; i++) diff += fabs(pr_new[i] - pr[i]);
 
-        int *recvcounts = malloc(size * sizeof(int));
-        int *displs = malloc(size * sizeof(int));
-        for (int r = 0; r < size; r++) {
-            int b, e;
-            owner_range(N, size, r, &b, &e);
-            recvcounts[r] = e - b;
-            displs[r] = b;
-        }
-        MPI_Allgatherv(pr_new + begin, end - begin, MPI_DOUBLE,
-                       pr, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
-        free(recvcounts);
-        free(displs);
-
+        double *tmp = pr; pr = pr_new; pr_new = tmp;
         iters = iter + 1;
         if (diff < tol) break;
     }
-    double t1 = MPI_Wtime();
 
-    if (rank == 0) {
-        double sum = 0.0;
-        for (int i = 0; i < N; i++) sum += pr[i];
-        printf("=== MPI PageRank ===\n");
-        printf("File      : %s\n", filename);
-        printf("Mode      : %s\n", directed ? "directed" : "undirected");
-        printf("Ranks     : %d\n", size);
-        printf("Iterations : %d\n", iters);
-        printf("PR time    : %.6f s\n", t1 - t0);
-        printf("PR sum     : %.10f\n", sum);
-        FILE *fp = fopen("pagerank_mpi_output.txt", "w");
-        if (fp) {
-            for (int i = 0; i < N; i++) fprintf(fp, "%s %.15e\n", g->names[i], pr[i]);
-            fclose(fp);
-            printf("Results saved: pagerank_mpi_output.txt\n");
-        }
+    double sum = 0.0;
+    for (int i = 0; i < N; i++) sum += pr[i];
+    printf("=== OpenMP Target PageRank ===\n");
+    printf("Nodes      : %d\n", N);
+    printf("Iterations : %d\n", iters);
+    printf("PR sum     : %.10f\n", sum);
+
+    FILE *fp = fopen("pagerank_gpu_output.txt", "w");
+    if (fp) {
+        for (int i = 0; i < N; i++) fprintf(fp, "%s %.15e\n", g->names[i], pr[i]);
+        fclose(fp);
+        printf("Results saved: pagerank_gpu_output.txt\n");
     }
 
     free(pr);
     free(pr_new);
     free_graph(g);
-    MPI_Finalize();
     return 0;
 }

@@ -1,0 +1,16 @@
+
+ Performance counter stats for '/cfs/klemming/home/j/jiachens/DD2356-PageRank/serial/pagerank_serial /cfs/klemming/home/j/jiachens/DD2356-PageRank/data/polblogs.csv directed':
+
+     3,494,380,327      cycles:u                                                           
+     9,325,373,493      instructions:u                   #    2.67  insn per cycle         
+       117,698,257      cache-references:u                                                 
+            34,977      cache-misses:u                   #    0.030 % of all cache refs    
+       115,469,218      L1-dcache-load-misses:u                                            
+   <not supported>      LLC-load-misses:u                                           
+
+       1.896225618 seconds time elapsed
+
+       1.890830000 seconds user
+       0.003997000 seconds sys
+
+

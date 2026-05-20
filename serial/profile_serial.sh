@@ -1,39 +1,89 @@
 #!/bin/bash
-# profile_serial.sh – DD2356 Serial PageRank 性能分析脚本
-#
-# 多次计时运行，输出 min/max/avg，并给出 perf/gprof 使用指引。
+# profile_serial.sh – DD2356 Serial PageRank profiling
 #
 # 用法:
-#   chmod +x profile_serial.sh
-#   ./profile_serial.sh <csv_file> <directed|undirected> [repeat=5]
+#   ./serial/profile_serial.sh                                   # quick: 5x 计时
+#   ./serial/profile_serial.sh --full                            # quick + gprof + perf
+#   ./serial/profile_serial.sh --full data/polblogs.csv directed
+#
+# 输出 (--full):  (<tag> 自动检测: kth / dardel / colab / hostname)
+#   results/gprof_<graph>_<tag>.txt       – gprof flat profile + call graph
+#   results/perf_stat_<graph>_<tag>.txt   – perf hardware counters (if available)
+#   results/pr_run_<graph>_<tag>.txt      – PR program stdout under gprof
+#   results/hotspot_notes_<graph>_<tag>.md – auto-extracted top hotspots
+#
+# 环境变量:
+#   PR_PROFILE_REPEAT=500              – gprof/perf 内核重复次数 (默认 500)
+#   PR_HOST_TAG=...                    – 手动覆盖平台 tag (默认自动)
 
 set -e
-BINARY="./pagerank_serial"
-GRAPH="${1:-data/polblogs.csv}"
-MODE="${2:-directed}"
-REPEAT="${3:-5}"
 
-if [ ! -f "$BINARY" ]; then
-    echo "[ERROR] 找不到可执行文件，请先编译："
-    echo "  gcc -O2 -o pagerank_serial pagerank_serial.c -lm"
-    exit 1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SERIAL_DIR="$PROJECT_ROOT/serial"
+RESULTS_DIR="$PROJECT_ROOT/results"
+mkdir -p "$RESULTS_DIR"
+
+MODE="quick"
+if [ "$1" = "--full" ]; then MODE="full"; shift; fi
+
+GRAPH="${1:-$PROJECT_ROOT/data/polblogs.csv}"
+DIRECTION="${2:-directed}"
+REPEAT_TIMING="${3:-5}"
+REPEAT_PROFILE="${PR_PROFILE_REPEAT:-500}"
+
+# Make GRAPH absolute so we can cd to PROJECT_ROOT safely
+case "$GRAPH" in
+    /*) ;;
+    *)  GRAPH="$PROJECT_ROOT/$GRAPH" ;;
+esac
+
+GRAPH_NAME=$(basename "$GRAPH" .csv)
+BINARY="$SERIAL_DIR/pagerank_serial"
+BIN_PG="$SERIAL_DIR/pagerank_serial_pg"
+
+# ─── Platform tag (suffix for output files) ─────────────────────────
+# Order: explicit override > Colab > Dardel > KTH JupyterHub > generic hostname
+if [ -z "$PR_HOST_TAG" ]; then
+    if [ -d "/content" ] || [ -n "$COLAB_GPU" ] || [ -n "$COLAB_RELEASE_TAG" ]; then
+        PR_HOST_TAG="colab"
+    else
+        case "$(uname -n)" in
+            *dardel*|*.pdc.kth.se) PR_HOST_TAG="dardel" ;;
+            jupyter-*)              PR_HOST_TAG="kth"    ;;
+            *)
+                PR_HOST_TAG="$(uname -n | cut -d. -f1 | tr '[:upper:]' '[:lower:]')"
+                ;;
+        esac
+    fi
+fi
+TAG="$PR_HOST_TAG"
+SUFFIX="${GRAPH_NAME}_${TAG}"
+
+# Build if missing or stale
+if [ ! -f "$BINARY" ] || [ "$SERIAL_DIR/pagerank_serial.c" -nt "$BINARY" ]; then
+    echo "[build] gcc -O2 -o $BINARY"
+    gcc -O2 -o "$BINARY" "$SERIAL_DIR/pagerank_serial.c" -lm
 fi
 
 echo "========================================"
-echo " DD2356 Serial PageRank – 性能分析"
+echo " DD2356 Serial PageRank – Profiling"
 echo "========================================"
-echo "Binary  : $BINARY"
-echo "Graph   : $GRAPH  ($MODE)"
-echo "Repeats : $REPEAT"
+echo "Host         : $(uname -n)  ($(uname -sr))"
+echo "Tag          : $TAG  (PR_HOST_TAG to override)"
+echo "Graph        : $GRAPH ($DIRECTION)"
+echo "Timing runs  : $REPEAT_TIMING"
+[ "$MODE" = "full" ] && echo "Profile reps : $REPEAT_PROFILE  (PR_REPEAT for gprof/perf)"
 echo ""
 
+# ─── Quick timing (always runs) ─────────────────────────────────────
 TIMES=()
-for i in $(seq 1 $REPEAT); do
-    echo -n "Run $i/$REPEAT ... "
+for i in $(seq 1 $REPEAT_TIMING); do
+    echo -n "Run $i/$REPEAT_TIMING ... "
     START=$(date +%s%N)
-    $BINARY "$GRAPH" "$MODE" > /tmp/pr_run_$i.txt 2>&1
+    "$BINARY" "$GRAPH" "$DIRECTION" > /tmp/pr_run_$i.txt 2>&1
     END=$(date +%s%N)
-    ELAPSED=$(echo "scale=6; ($END - $START) / 1000000000" | bc)
+    ELAPSED=$(awk "BEGIN {printf \"%.6f\", ($END - $START)/1e9}")
     TIMES+=($ELAPSED)
     echo "${ELAPSED} s"
 done
@@ -42,25 +92,122 @@ echo ""
 echo "--- Timing Summary ---"
 python3 - "${TIMES[@]}" <<'PYEOF'
 import sys
-times = [float(x) for x in sys.argv[1:]]
-print(f"  Min  : {min(times):.6f} s")
-print(f"  Max  : {max(times):.6f} s")
-print(f"  Avg  : {sum(times)/len(times):.6f} s")
-print(f"  Std  : {(sum((t-sum(times)/len(times))**2 for t in times)/len(times))**0.5:.6f} s")
+t = [float(x) for x in sys.argv[1:]]
+m = sum(t)/len(t)
+print(f"  Min  : {min(t):.6f} s")
+print(f"  Max  : {max(t):.6f} s")
+print(f"  Avg  : {m:.6f} s")
+print(f"  Std  : {(sum((x-m)**2 for x in t)/len(t))**0.5:.6f} s")
 PYEOF
 
+# ─── Full mode: gprof + perf + hotspot notes ────────────────────────
+if [ "$MODE" != "full" ]; then
+    echo ""
+    echo "(Tip: rerun with --full to generate gprof + perf reports in results/)"
+    exit 0
+fi
+
 echo ""
-echo "--- 进阶 Profiling 指引 ---"
+echo "--- gprof ---"
+echo "[build] gcc -O2 -pg -o $BIN_PG"
+gcc -O2 -pg -o "$BIN_PG" "$SERIAL_DIR/pagerank_serial.c" -lm
+
+GPROF_OUT="$RESULTS_DIR/gprof_${SUFFIX}.txt"
+PR_STDOUT="$RESULTS_DIR/pr_run_${SUFFIX}.txt"
+echo "[run]   PR_REPEAT=$REPEAT_PROFILE  $BIN_PG ..."
+( cd "$PROJECT_ROOT" \
+  && PR_REPEAT="$REPEAT_PROFILE" "$BIN_PG" "$GRAPH" "$DIRECTION" \
+       > "$PR_STDOUT" )
+
+GPROF_OK=0
+if [ -f "$PROJECT_ROOT/gmon.out" ]; then
+    gprof "$BIN_PG" "$PROJECT_ROOT/gmon.out" > "$GPROF_OUT"
+    rm -f "$PROJECT_ROOT/gmon.out"
+    GPROF_OK=1
+    echo "[out]   $GPROF_OUT"
+else
+    printf '%s\n' \
+        "gprof unavailable on $(uname -n) ($(uname -sr))." \
+        "gmon.out was not produced — -pg is unsupported on this host (e.g. macOS clang)." \
+        "Re-run on KTH or Dardel to populate." \
+        > "$GPROF_OUT"
+    echo "[warn] gmon.out not produced — wrote stub to $GPROF_OUT"
+fi
+
 echo ""
-echo "# gprof（函数级热点）:"
-echo "  gcc -O2 -pg -o pagerank_serial_pg pagerank_serial.c -lm"
-echo "  ./pagerank_serial_pg $GRAPH $MODE"
-echo "  gprof pagerank_serial_pg gmon.out > gprof_report.txt"
+echo "--- perf stat ---"
+PERF_OUT="$RESULTS_DIR/perf_stat_${SUFFIX}.txt"
+PERF_OK=0
+if command -v perf >/dev/null 2>&1; then
+    echo "[run]   perf stat -e cycles,instructions,cache-references,cache-misses,..."
+    if ( cd "$PROJECT_ROOT" \
+         && PR_REPEAT="$REPEAT_PROFILE" perf stat \
+              -e cycles,instructions,cache-references,cache-misses,L1-dcache-load-misses,LLC-load-misses \
+              "$BINARY" "$GRAPH" "$DIRECTION" \
+              > /dev/null 2> "$PERF_OUT" ); then
+        PERF_OK=1
+        echo "[out]   $PERF_OUT"
+    else
+        echo "[warn] perf failed (check /proc/sys/kernel/perf_event_paranoid)"
+    fi
+else
+    echo "[skip] perf not installed on this host"
+    printf '%s\n' \
+        "perf unavailable on $(uname -n) ($(uname -sr))." \
+        "Re-run on KTH or Dardel to populate." \
+        > "$PERF_OUT"
+fi
+
+# ─── Auto-generate hotspot_notes.md from gprof flat profile ─────────
 echo ""
-echo "# perf（Linux，硬件计数器）:"
-echo "  perf stat -e cycles,instructions,cache-misses ./pagerank_serial $GRAPH $MODE"
-echo "  perf record ./pagerank_serial $GRAPH $MODE && perf report"
+echo "--- hotspot_notes ---"
+NOTES="$RESULTS_DIR/hotspot_notes_${SUFFIX}.md"
+{
+    echo "# Hotspot notes – ${GRAPH_NAME} on ${TAG} (serial baseline)"
+    echo ""
+    echo "Generated by \`serial/profile_serial.sh --full\` on $(date -u +'%Y-%m-%d %H:%M UTC')."
+    echo "- Host: \`$(uname -n)\` ($(uname -sr))"
+    echo "- Tag:  \`${TAG}\`"
+    echo "- Graph: \`$GRAPH\` ($DIRECTION)"
+    echo "- PR_REPEAT: $REPEAT_PROFILE"
+    echo ""
+    echo "## gprof flat profile (top functions)"
+    echo ""
+    if [ "$GPROF_OK" = "1" ]; then
+        echo '```'
+        awk '
+            /^Flat profile:/ { in_flat=1 }
+            in_flat { print }
+            in_flat && /^Call graph/ { exit }
+        ' "$GPROF_OUT" | head -25
+        echo '```'
+    else
+        echo "_gprof did not produce data on this host_ — see \`results/gprof_${SUFFIX}.txt\`."
+        echo "Re-run \`serial/profile_serial.sh --full\` on KTH or Dardel."
+    fi
+    echo ""
+    echo "## perf stat highlights"
+    echo ""
+    if [ "$PERF_OK" = "1" ]; then
+        echo '```'
+        head -40 "$PERF_OUT"
+        echo '```'
+    else
+        echo "_perf did not produce data on this host_ — see \`results/perf_stat_${SUFFIX}.txt\`."
+        echo "Re-run \`serial/profile_serial.sh --full\` on KTH or Dardel."
+    fi
+    echo ""
+    echo "## Sources"
+    echo ""
+    echo "- gprof full:    \`results/gprof_${SUFFIX}.txt\`"
+    echo "- perf stat:     \`results/perf_stat_${SUFFIX}.txt\`"
+    echo "- PR stdout:     \`results/pr_run_${SUFFIX}.txt\`"
+} > "$NOTES"
+echo "[out]   $NOTES"
+
 echo ""
-echo "# Valgrind cachegrind（缓存分析）:"
-echo "  valgrind --tool=cachegrind ./pagerank_serial $GRAPH $MODE"
-echo "  cg_annotate cachegrind.out.* > cachegrind_report.txt"
+echo "Done. Commit these files:"
+echo "  results/gprof_${SUFFIX}.txt"
+echo "  results/perf_stat_${SUFFIX}.txt"
+echo "  results/pr_run_${SUFFIX}.txt"
+echo "  results/hotspot_notes_${SUFFIX}.md"
