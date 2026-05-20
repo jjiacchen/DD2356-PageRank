@@ -58,6 +58,6 @@ calls      the number of times this function was invoked, if
 
 ## Sources
 
-- gprof full:    `results/gprof_polblogs.txt`
-- perf stat:     `results/perf_stat_polblogs.txt`
-- timing stdout: `results/perf_polblogs_stdout.txt`
+- gprof full:    `results/gprof_polblogs_kth.txt`
+- perf stat:     `results/perf_stat_polblogs_kth.txt`
+- PR stdout:     `results/pr_run_polblogs_kth.txt`
