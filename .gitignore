@@ -1,9 +1,20 @@
 # 编译产物
 serial/pagerank_serial
 serial/pagerank_serial_pg
+mpi/pagerank_mpi
 verify/verify
 *.o
 gmon.out
 cachegrind.out.*
 pagerank_serial_output.txt
+pagerank_mpi_output*.txt
+data/synthetic/*.csv
+results/*.log
+results/*.err
+results/*.out
+results/*.txt
+results/mpi_correctness_summary*.csv
+results/mpi_scaling_*.csv
+__pycache__/
+tools/__pycache__/
 .DS_Store
