@@ -17,6 +17,31 @@
 
 ---
 
+## Dataset Setup（小图与大图）
+
+**课程小图**位于 `data/`，包括 `polblogs`、`karate`、`lesmis`、`dolphins`、`NCAA_football` 和 `stateborders` 等数据集。这些图是课程/原始 PageRank 数据集提供的输入图，不是本项目生成的。它们规模较小，适合快速验证：
+
+- serial / OpenMP / MPI / GPU 输出是否一致
+- PR sum 是否为 1
+- Top-10 排名是否稳定
+- directed / undirected 处理是否正确
+
+对应的 serial golden references 由 `scripts/generate_references.sh` 调用 serial 程序生成，保存在 `references/` 下。
+
+**新增大图**是 `data/synthetic_large_directed.csv`，由 `scripts/generate_large_graph.py` 生成。默认参数为：
+
+```text
+nodes = 100000
+edges = 2000000
+seed  = 26
+mode  = directed
+format = node_a,0,node_b,0
+```
+
+生成方式是先写入一个 directed ring，保证每个节点都至少出现一次并且有非零入/出度；随后加入可复现的随机边和部分 hub-biased 边，让图具有一定度数倾斜。加入大图的原因是课程小图大多能放进 L1/L2 cache，容易被计时噪声、I/O 和并行启动开销影响；大图的 hot working set 约为 10.68 MiB，更适合观察 PageRank 的 cache/DRAM 访存行为和后续并行扩展性。
+
+---
+
 ## Runtime Results – polblogs.csv（主测试集）
 **directed · 1224 nodes · 19090 edges**
 
