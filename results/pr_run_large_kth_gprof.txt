@@ -1,0 +1,30 @@
+=== DD2356 Serial PageRank Baseline ===
+File      : data/synthetic_large_directed.csv
+Mode      : directed
+Damping   : 0.8500
+Tolerance : 1.00e-10
+Max iter  : 1000
+
+Nodes     : 100000
+Edges     : 2000000
+Load time : 0.4098 s
+
+Iterations : 16
+PR repeats : 20  (PR_REPEAT)
+PR time    : 0.038181 s  (per-run avg, total 0.763627 s)
+PR sum     : 1.0000000000  (should be ~1.0)
+
+Top-10 nodes:
+  Rank    Node                  PageRank
+  ------  --------------------  --------------------
+  1       446                   0.0002320849
+  2       139                   0.0002303673
+  3       485                   0.0002291712
+  4       136                   0.0002262511
+  5       592                   0.0002241538
+  6       620                   0.0002237003
+  7       70                    0.0002235866
+  8       116                   0.0002230801
+  9       608                   0.0002214259
+  10      102                   0.0002211747
+Results saved: pagerank_serial_output.txt

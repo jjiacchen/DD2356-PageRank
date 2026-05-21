@@ -1,0 +1,16 @@
+
+ Performance counter stats for './serial/pagerank_serial data/synthetic_large_directed.csv directed':
+
+        4376563594      cycles                                                      
+        7296153608      instructions              #    1.67  insn per cycle         
+         138468944      cache-references                                            
+           1913656      cache-misses              #    1.382 % of all cache refs    
+        1229394491      L1-dcache-load-misses                                       
+            513608      LLC-load-misses                                             
+
+       1.155811050 seconds time elapsed
+
+       1.115618000 seconds user
+       0.040130000 seconds sys
+
+

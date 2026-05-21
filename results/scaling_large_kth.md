@@ -7,4 +7,4 @@
 
 | Variant | Config | PR time (s) | Iterations |
 |---|---|---:|---:|
-| serial | 1 thread | 0.039875 | 16 |
+| serial | 1 thread | 0.040141 | 16 |
