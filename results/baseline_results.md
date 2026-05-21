@@ -54,10 +54,10 @@
 
 | 指标 | Colab | KTH集群 | Dardel |
 |------|-------|---------|--------|
-| PR time (s) | 0.156453 | 0.039875 | 0.089340 |
+| PR time (s) | 0.156453 | 0.040141 | 0.089340 |
 | Iterations | 16 | 16 | 16 |
-| MEdges/s | 204.5 | 802.5 | 358.2 |
-| vs Colab 加速比 | 1.0× | 3.92× | 1.75× |
+| MEdges/s | 204.5 | 797.2 | 358.2 |
+| vs Colab 加速比 | 1.0× | 3.90× | 1.75× |
 
 **说明**：
 
@@ -79,7 +79,7 @@
 ## Key Observations（报告用）
 
 1. **小图用于 correctness， 大图用于 performance**：课程数据集运行快、便于验证；`synthetic_large_directed` 更适合观察真实性能差异。
-2. **KTH集群 serial 最快**：`polblogs` 上 KTH 比 Colab 快 5.4×，大图上快 3.92×。
+2. **KTH集群 serial 最快**：`polblogs` 上 KTH 比 Colab 快 5.4×，大图上快 3.90×。
 3. **Dardel serial 快于 Colab，但弱于 KTH**：大图上 Dardel 比 Colab 快 1.75×，但单核 PR time 仍高于 KTH。
 4. **小图 I/O 和计时噪声占比高**：`polblogs` load time 在 Colab 和 Dardel 上占比较高，parallel speedup 应优先看 PR time 而不是 end-to-end time。
 5. **Iterations 三平台一致**：小图和大图的迭代次数在三个平台一致，说明 serial 结果可复现。
