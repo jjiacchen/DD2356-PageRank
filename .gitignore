@@ -15,6 +15,15 @@ results/*.out
 results/*.txt
 results/mpi_correctness_summary*.csv
 results/mpi_scaling_*.csv
+!results/mpi_scaling_cluster_polblogs_directed.csv
+!results/mpi_scaling_cluster_polblogs_directed_raw.csv
+!results/mpi_scaling_cluster_synthetic_100k_1m_directed.csv
+!results/mpi_scaling_cluster_synthetic_100k_1m_directed_raw.csv
 __pycache__/
 tools/__pycache__/
 .DS_Store
+wang_report_section.aux
+wang_report_section.log
+wang_report_section.out
+wang_report_section.pdf
+wang_report_section.tex
