@@ -47,6 +47,21 @@ The Hybrid profiler builds the serial baseline, Hybrid MPI+OpenMP binary, and ve
 CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 ./mpi/profile_hybrid.sh data/polblogs.csv directed "1x4 2x2 4x1"
 ```
 
+## Hybrid Optimization Ablation
+```bash
+REPEAT=10 OUTPUT_PREFIX=cluster_ ./mpi/profile_optimization_ablation.sh data/synthetic/synthetic_100k_1m.csv directed "1x16 4x4"
+REPEAT=30 OUTPUT_PREFIX=cluster_ ./mpi/profile_optimization_ablation.sh data/polblogs.csv directed "1x16 4x4"
+```
+
+The ablation profiler compares four Hybrid MPI+OpenMP variants:
+`no_inv_static`, `inv_static`, `no_inv_dynamic`, and `inv_dynamic`. It writes
+`results/optimization_ablation_<dataset>_<mode>.csv` plus the raw repeat-level
+CSV. On Open MPI wrappers that default to Apple clang, use the same compiler
+override as the fixed-core Hybrid profiler:
+```bash
+CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 REPEAT=10 OUTPUT_PREFIX=cluster_ ./mpi/profile_optimization_ablation.sh data/synthetic/synthetic_100k_1m.csv directed "1x16 4x4"
+```
+
 ## Wang MPI Workflow Before Cluster Runs
 ```bash
 # 1. Check correctness across all course datasets
