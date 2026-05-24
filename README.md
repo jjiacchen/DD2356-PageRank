@@ -99,8 +99,11 @@ GRAPH=data/synthetic/synthetic_100k_1m.csv MODE=directed RANKS="1 2 4 8 16 32" s
 # School cluster
 GRAPH=data/synthetic/synthetic_100k_1m.csv MODE=directed RANKS="1 2 4 8 16 32" sbatch run_mpi_cluster.sh
 
-# School cluster / Jupiter web terminal weak scaling
-PLATFORM=cluster REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
+# School cluster / Jupiter web terminal weak scaling.
+# Regenerate preset inputs first so the cluster and Dardel measurements use
+# identical synthetic graphs.
+python3 tools/generate_graph.py --preset weak
+PLATFORM=cluster GENERATE_WEAK_GRAPHS=0 REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
 
 # Dardel weak scaling from an allocated job shell
 PLATFORM=dardel MPI_RUNNER=srun MPI_NP_FLAG=-n REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"

@@ -30,6 +30,7 @@ WEAK_NODES_PER_RANK="${WEAK_NODES_PER_RANK:-12500}"
 WEAK_EDGES_PER_RANK="${WEAK_EDGES_PER_RANK:-125000}"
 WEAK_OUTPUT_DIR="${WEAK_OUTPUT_DIR:-data/synthetic}"
 GENERATE_WEAK_GRAPHS="${GENERATE_WEAK_GRAPHS:-1}"
+WEAK_SEED_BASE="${WEAK_SEED_BASE:-2356}"
 
 SERIAL_BIN="./serial/pagerank_serial"
 MPI_BIN="./mpi/pagerank_mpi"
@@ -40,6 +41,17 @@ RAW_CSV="results/mpi_weak_scaling_${RUN_ID}_raw.csv"
 SUMMARY_CSV="results/mpi_weak_scaling_${RUN_ID}.csv"
 
 mkdir -p results "$WEAK_OUTPUT_DIR"
+
+weak_seed_for_rank() {
+    case "$1" in
+        1) echo "$WEAK_SEED_BASE" ;;
+        2) echo "$((WEAK_SEED_BASE + 1))" ;;
+        4) echo "$((WEAK_SEED_BASE + 2))" ;;
+        8) echo "$((WEAK_SEED_BASE + 3))" ;;
+        16) echo "$((WEAK_SEED_BASE + 4))" ;;
+        *) echo "$((WEAK_SEED_BASE + $1))" ;;
+    esac
+}
 
 echo "========================================"
 echo " DD2356 MPI PageRank - weak scaling"
@@ -75,12 +87,13 @@ for NP in $RANKS; do
 
     if [ ! -s "$GRAPH" ]; then
         if [ "$GENERATE_WEAK_GRAPHS" = "1" ]; then
+            GRAPH_SEED="$(weak_seed_for_rank "$NP")"
             echo ""
-            echo "[generate] $GRAPH ($TARGET_NODES nodes, $TARGET_EDGES edges)"
+            echo "[generate] $GRAPH ($TARGET_NODES nodes, $TARGET_EDGES edges, seed=$GRAPH_SEED)"
             "$PYTHON" tools/generate_graph.py \
                 --nodes "$TARGET_NODES" \
                 --edges "$TARGET_EDGES" \
-                --seed "$((2356 + NP))" \
+                --seed "$GRAPH_SEED" \
                 --output "$GRAPH"
         else
             echo "Missing graph: $GRAPH" >&2
