@@ -345,12 +345,20 @@ int main(int argc, char **argv) {
         timing.dangling_reduce += MPI_Wtime() - tc;
         double dang = damping * dangling / N;
 
+#ifdef PR_UPDATE_SCHEDULE_STATIC
+#pragma omp parallel for schedule(static)
+#else
 #pragma omp parallel for schedule(dynamic, 256)
+#endif
         for (int v = begin; v < end; v++) {
             double s = 0.0;
             for (int k = g->row_ptr[v]; k < g->row_ptr[v + 1]; k++) {
                 int u = g->col_idx[k];
+#ifdef PR_DISABLE_INV_OUT_DEG
+                if (g->out_degree[u] != 0) s += pr[u] / (double)g->out_degree[u];
+#else
                 s += pr[u] * g->inv_out_degree[u];
+#endif
             }
             pr_new[v] = base + dang + damping * s;
         }
