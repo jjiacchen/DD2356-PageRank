@@ -70,13 +70,19 @@ CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 REPEAT=10 OUTPUT_PREFIX=cluster_ ./mp
 # 2. Run fixed-core Hybrid smoke/profile combos
 CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 ./mpi/profile_hybrid.sh data/polblogs.csv directed "1x4 2x2 4x1"
 
-# 3. Generate larger synthetic graphs for meaningful scaling
+# 3. Generate larger synthetic graphs for meaningful strong scaling
 python3 tools/generate_graph.py --preset all
 
-# 4. Run a local or cluster scaling profile
+# 4. Generate weak-scaling graphs up to the required 16-rank case
+python3 tools/generate_graph.py --preset weak
+
+# 5. Run a local or cluster strong-scaling profile
 REPEAT=3 ./mpi/profile_mpi.sh data/synthetic/synthetic_10k_100k.csv directed "1 2 4"
 
-# 5. Generate result figures from summary CSV files
+# 6. Run true weak scaling (each rank count uses a different graph size)
+PLATFORM=cluster REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
+
+# 7. Generate result figures from summary CSV files
 python3 tools/plot_mpi_results.py results/mpi_scaling_synthetic_10k_100k_directed.csv --out-dir results/figures
 ```
 
@@ -92,6 +98,12 @@ GRAPH=data/synthetic/synthetic_100k_1m.csv MODE=directed RANKS="1 2 4 8 16 32" s
 
 # School cluster
 GRAPH=data/synthetic/synthetic_100k_1m.csv MODE=directed RANKS="1 2 4 8 16 32" sbatch run_mpi_cluster.sh
+
+# School cluster / Jupiter web terminal weak scaling
+PLATFORM=cluster REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
+
+# Dardel weak scaling from an allocated job shell
+PLATFORM=dardel MPI_RUNNER=srun MPI_NP_FLAG=-n REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
 ```
 
 If the cluster requires modules, pass them explicitly:

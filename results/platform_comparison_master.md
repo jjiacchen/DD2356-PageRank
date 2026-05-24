@@ -106,7 +106,21 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | dardel | polblogs.csv | 8 | 10.368678 | 0.000329 | 0.000041 |
 | dardel | polblogs.csv | 16 | 14.060021 | 0.000243 | 0.000015 |
 
-### 3.3 Hybrid Fixed-Core Search (P x N)
+### 3.3 MPI Weak Scaling (scaled synthetic dataset)
+| Platform | Dataset | Ranks | Nodes | Edges | Edges/rank | PR time (s) | Weak efficiency (= T1 / TP) | Status |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| kth | weak_1rank_12500_125000.csv | 1 | 12,500 | 125,000 | 125,000 |  | 1.00 | TBD |
+| kth | weak_2rank_25000_250000.csv | 2 | 25,000 | 250,000 | 125,000 |  |  | TBD |
+| kth | weak_4rank_50000_500000.csv | 4 | 50,000 | 500,000 | 125,000 |  |  | TBD |
+| kth | weak_8rank_100000_1000000.csv | 8 | 100,000 | 1,000,000 | 125,000 |  |  | TBD |
+| kth | weak_16rank_200000_2000000.csv | 16 | 200,000 | 2,000,000 | 125,000 |  |  | TBD |
+| dardel | weak_1rank_12500_125000.csv | 1 | 12,500 | 125,000 | 125,000 |  | 1.00 | TBD |
+| dardel | weak_2rank_25000_250000.csv | 2 | 25,000 | 250,000 | 125,000 |  |  | TBD |
+| dardel | weak_4rank_50000_500000.csv | 4 | 50,000 | 500,000 | 125,000 |  |  | TBD |
+| dardel | weak_8rank_100000_1000000.csv | 8 | 100,000 | 1,000,000 | 125,000 |  |  | TBD |
+| dardel | weak_16rank_200000_2000000.csv | 16 | 200,000 | 2,000,000 | 125,000 |  |  | TBD |
+
+### 3.4 Hybrid Fixed-Core Search (P x N)
 | Platform | Dataset | Total cores | (P ranks, N threads) | PR time (s) | Best? |
 |---|---|---:|---|---:|---|
 | kth | polblogs.csv | 16 | (1,16) |  |  |

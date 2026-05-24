@@ -125,15 +125,28 @@ GRAPH=data/synthetic/synthetic_100k_1m.csv MODE=directed RANKS="1 2 4 8 16 32" s
 
 ### Weak Scaling
 
-Use one graph size per approximate process count:
+Weak scaling must increase the graph size with the number of MPI ranks. The
+required 16-rank experiment is now supported by removing the old 100k-node
+static allocation limit in the serial, MPI, and Hybrid readers.
 
-| Ranks | Suggested graph |
-|-------|-----------------|
-| 1 | `data/synthetic/synthetic_10k_100k.csv` |
-| 4 | `data/synthetic/synthetic_50k_500k.csv` |
-| 8 or 16 | `data/synthetic/synthetic_100k_1m.csv` |
+```bash
+python3 tools/generate_graph.py --preset weak
+PLATFORM=cluster REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
+PLATFORM=dardel MPI_RUNNER=srun MPI_NP_FLAG=-n REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
+```
 
-Set `SCALING_MODE=weak` when submitting weak-scaling runs so the CSV and figures are labeled correctly.
+Default weak-scaling workload:
+
+| Ranks | Graph | Target nodes | Target edges | Nodes/rank | Edges/rank |
+|-------|-------|-------------:|-------------:|-----------:|-----------:|
+| 1 | `weak_1rank_12500_125000.csv` | 12,500 | 125,000 | 12,500 | 125,000 |
+| 2 | `weak_2rank_25000_250000.csv` | 25,000 | 250,000 | 12,500 | 125,000 |
+| 4 | `weak_4rank_50000_500000.csv` | 50,000 | 500,000 | 12,500 | 125,000 |
+| 8 | `weak_8rank_100000_1000000.csv` | 100,000 | 1,000,000 | 12,500 | 125,000 |
+| 16 | `weak_16rank_200000_2000000.csv` | 200,000 | 2,000,000 | 12,500 | 125,000 |
+
+The weak-scaling script writes `results/mpi_weak_scaling_<platform>_directed.csv`
+and reports weak efficiency as `T_1 / T_P`.
 
 ---
 
@@ -166,6 +179,25 @@ Dardel experiments were run on one shared node with `salloc -t 03:00:00 -A edu26
 The current replicated-vector MPI strategy is correct but does not scale on this Dardel shared-node run. At `P > 1`, almost all PageRank time is spent in collective communication, especially the full-vector `MPI_Allgatherv` and synchronization waits inside scalar reductions. The synthetic graph has balanced node blocks and only mild in-edge imbalance (`max/avg` around 1.05), so the dominant bottleneck is communication rather than computational load imbalance. The course graph `polblogs` is both smaller and more imbalanced, which makes the communication overhead even more visible.
 
 This result motivates the next optimization step: avoid full-vector synchronization every iteration, or switch to a communication-reduced graph partitioning strategy where ranks exchange only boundary contributions instead of all PageRank entries.
+
+### Required Weak Scaling Results
+
+Use this table for the final Dardel and school-cluster measurements after
+running `mpi/profile_mpi_weak.sh`. The 16-rank row must use the 200k-node /
+2M-edge graph, not `synthetic_100k_1m.csv`.
+
+| Platform | Dataset | Ranks | Runs | PR time avg (s) | Comm fraction | Weak efficiency | Edges/rank | Work imbalance | Status |
+|----------|---------|------:|-----:|----------------:|--------------:|----------------:|-----------:|---------------:|--------|
+| dardel | weak_1rank_12500_125000 | 1 | TBD | TBD | TBD | 1.000000 | 125,000 | TBD | TBD |
+| dardel | weak_2rank_25000_250000 | 2 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| dardel | weak_4rank_50000_500000 | 4 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| dardel | weak_8rank_100000_1000000 | 8 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| dardel | weak_16rank_200000_2000000 | 16 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| cluster | weak_1rank_12500_125000 | 1 | TBD | TBD | TBD | 1.000000 | 125,000 | TBD | TBD |
+| cluster | weak_2rank_25000_250000 | 2 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| cluster | weak_4rank_50000_500000 | 4 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| cluster | weak_8rank_100000_1000000 | 8 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| cluster | weak_16rank_200000_2000000 | 16 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
 
 ---
 

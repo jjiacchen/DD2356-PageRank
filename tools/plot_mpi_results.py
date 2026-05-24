@@ -221,8 +221,12 @@ def main() -> None:
     args = parse_args()
     rows = load_rows(args.csv)
     out = args.out_dir
-    line_chart(rows, "speedup", "MPI Speedup", "speedup", out / "mpi_speedup.png", ideal=True)
-    line_chart(rows, "parallel_efficiency", "MPI Parallel Efficiency", "efficiency", out / "mpi_efficiency.png")
+    if all("speedup" in r for r in rows):
+        line_chart(rows, "speedup", "MPI Speedup", "speedup", out / "mpi_speedup.png", ideal=True)
+    if all("parallel_efficiency" in r for r in rows):
+        line_chart(rows, "parallel_efficiency", "MPI Parallel Efficiency", "efficiency", out / "mpi_efficiency.png")
+    elif all("weak_efficiency" in r for r in rows):
+        line_chart(rows, "weak_efficiency", "MPI Weak Scaling Efficiency", "T1 / TP", out / "mpi_weak_efficiency.png")
     stacked_runtime_chart(rows, out / "mpi_runtime_breakdown.png")
     bar_chart(rows, "comm_fraction_avg", "MPI Communication Fraction", "comm / PR time", out / "mpi_comm_fraction.png")
     bar_chart(rows, "work_imbalance", "MPI Workload Balance", "max in-edges / avg", out / "mpi_workload_balance.png")

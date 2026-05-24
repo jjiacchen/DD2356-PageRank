@@ -14,6 +14,7 @@ CFLAGS="${CFLAGS:--O2}"
 OPENMP_CFLAGS="${OPENMP_CFLAGS:--fopenmp}"
 OPENMP_LDFLAGS="${OPENMP_LDFLAGS:-$OPENMP_CFLAGS}"
 MPI_WRAPPER_CC="${MPI_WRAPPER_CC:-${OMPI_CC:-}}"
+BUILD_GPU="${BUILD_GPU:-1}"
 
 supports_openmp() {
   local compiler="$1"
@@ -66,7 +67,11 @@ fi
 
 if supports_openmp "$CC"; then
   "$CC" $CFLAGS $OPENMP_CFLAGS -o "$ROOT_DIR/openmp/pagerank_openmp" "$ROOT_DIR/openmp/pagerank_openmp.c" $OPENMP_LDFLAGS -lm
-  "$CC" $CFLAGS $OPENMP_CFLAGS -o "$ROOT_DIR/openmp/pagerank_openmp_gpu" "$ROOT_DIR/openmp/pagerank_openmp_gpu.c" $OPENMP_LDFLAGS -lm
+  if [ "$BUILD_GPU" = "1" ]; then
+    "$CC" $CFLAGS $OPENMP_CFLAGS -o "$ROOT_DIR/openmp/pagerank_openmp_gpu" "$ROOT_DIR/openmp/pagerank_openmp_gpu.c" $OPENMP_LDFLAGS -lm
+  else
+    echo "BUILD_GPU=0; OpenMP target GPU binary is skipped."
+  fi
 else
   echo "OpenMP compiler unavailable for CC=$CC; OpenMP/GPU binaries are skipped."
 fi

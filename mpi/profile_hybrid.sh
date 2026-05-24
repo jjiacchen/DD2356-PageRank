@@ -17,6 +17,7 @@ COMBOS="${3:-1x4 2x2 4x1}"
 REPEAT="${REPEAT:-1}"
 MPI_RUNNER="${MPI_RUNNER:-mpirun}"
 MPI_NP_FLAG="${MPI_NP_FLAG:--np}"
+MPI_CPUS_PER_TASK_FLAG="${MPI_CPUS_PER_TASK_FLAG:-}"
 MPI_FLAGS="${MPI_FLAGS:-}"
 TOL="${TOL:-1e-6}"
 OUTPUT_PREFIX="${OUTPUT_PREFIX:-}"
@@ -45,6 +46,9 @@ echo "Graph        : $GRAPH ($MODE)"
 echo "Combos       : $COMBOS"
 echo "Repeat       : $REPEAT"
 echo "MPI runner   : $MPI_RUNNER $MPI_FLAGS $MPI_NP_FLAG <np>"
+if [ -n "$MPI_CPUS_PER_TASK_FLAG" ]; then
+    echo "CPU binding  : $MPI_CPUS_PER_TASK_FLAG <threads>"
+fi
 echo "Tolerance    : $TOL"
 echo ""
 
@@ -83,9 +87,14 @@ for COMBO in $COMBOS; do
 
         echo ""
         echo "[run] combo=$COMBO repeat=$REP/$REPEAT"
+        CPU_ARGS=()
+        if [ -n "$MPI_CPUS_PER_TASK_FLAG" ]; then
+            CPU_ARGS=("$MPI_CPUS_PER_TASK_FLAG" "$THREADS")
+        fi
         set +e
         # shellcheck disable=SC2086
-        OMP_NUM_THREADS="$THREADS" "$MPI_RUNNER" $MPI_FLAGS "$MPI_NP_FLAG" "$RANKS" \
+        OMP_NUM_THREADS="$THREADS" OMP_PLACES="${OMP_PLACES:-cores}" OMP_PROC_BIND="${OMP_PROC_BIND:-close}" \
+            "$MPI_RUNNER" $MPI_FLAGS "$MPI_NP_FLAG" "$RANKS" "${CPU_ARGS[@]}" \
             "$HYBRID_BIN" "$GRAPH" "$MODE" "$THREADS" 0.85 1e-10 1000 "$HYBRID_OUT" \
             > "$HYBRID_LOG" < /dev/null
         RUN_CODE=$?
