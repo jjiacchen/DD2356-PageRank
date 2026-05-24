@@ -152,27 +152,27 @@ and reports weak efficiency as `T_1 / T_P`.
 
 ## Dardel Results
 
-Dardel experiments were run on one shared node with `salloc -t 03:00:00 -A edu26.DD2356 -p shared --nodes=1 --ntasks=16 --cpus-per-task=1`. Correctness passed for all 9 course datasets with `P = 1, 2, 4, 8, 16` MPI ranks and tolerance `1e-6`.
+Dardel experiments were run on one shared node with `salloc -t 03:00:00 -A edu26.DD2356 -p shared --nodes=1 --ntasks=16 --cpus-per-task=1`. The full course-dataset correctness suite passed for `P = 1, 2, 4`; the Dardel scaling and weak-scaling datasets passed for all measured `P = 1, 2, 4, 8, 16` cases with tolerance `1e-6`.
 
 ### Synthetic Strong Scaling
 
 | Dataset | Ranks | Runs | PR time avg (s) | Comm fraction | Speedup | Efficiency | Work imbalance | Status |
 |---------|-------|------|-----------------|---------------|---------|------------|----------------|--------|
-| synthetic_100k_1m | 1 | 5 | 0.034357 | 0.0146 | 1.000000 | 1.000000 | 1.000 | PASS |
-| synthetic_100k_1m | 2 | 5 | 8.728022 | 0.9963 | 0.003936 | 0.001968 | 1.035 | PASS |
-| synthetic_100k_1m | 4 | 5 | 12.569529 | 0.9985 | 0.002733 | 0.000683 | 1.044 | PASS |
-| synthetic_100k_1m | 8 | 5 | 12.952756 | 0.9992 | 0.002653 | 0.000332 | 1.047 | PASS |
-| synthetic_100k_1m | 16 | 5 | 18.218429 | 0.9996 | 0.001886 | 0.000118 | 1.051 | PASS |
+| synthetic_100k_1m | 1 | 5 | 0.036353 | 0.0127 | 1.000000 | 1.000000 | 1.000 | PASS |
+| synthetic_100k_1m | 2 | 5 | 8.682688 | 0.9961 | 0.004187 | 0.002093 | 1.035 | PASS |
+| synthetic_100k_1m | 4 | 5 | 7.217915 | 0.9976 | 0.005037 | 0.001259 | 1.044 | PASS |
+| synthetic_100k_1m | 8 | 5 | 10.115917 | 0.9989 | 0.003594 | 0.000449 | 1.047 | PASS |
+| synthetic_100k_1m | 16 | 5 | 16.303321 | 0.9996 | 0.002230 | 0.000139 | 1.051 | PASS |
 
 ### Course Dataset Comparison
 
 | Dataset | Ranks | Runs | PR time avg (s) | Comm fraction | Speedup | Efficiency | Work imbalance | Status |
 |---------|-------|------|-----------------|---------------|---------|------------|----------------|--------|
-| polblogs | 1 | 5 | 0.003410 | 0.0305 | 1.000000 | 1.000000 | 1.000 | PASS |
-| polblogs | 2 | 5 | 7.930667 | 0.9996 | 0.000430 | 0.000215 | 1.887 | PASS |
-| polblogs | 4 | 5 | 7.924683 | 0.9998 | 0.000430 | 0.000108 | 3.129 | PASS |
-| polblogs | 8 | 5 | 10.368678 | 1.0000 | 0.000329 | 0.000041 | 4.412 | PASS |
-| polblogs | 16 | 5 | 14.060021 | 1.0000 | 0.000243 | 0.000015 | 4.536 | PASS |
+| polblogs | 1 | 5 | 0.002560 | 0.0430 | 1.000000 | 1.000000 | 1.000 | PASS |
+| polblogs | 2 | 5 | 7.836485 | 0.9997 | 0.000327 | 0.000163 | 1.887 | PASS |
+| polblogs | 4 | 5 | 8.291886 | 0.9998 | 0.000309 | 0.000077 | 3.129 | PASS |
+| polblogs | 8 | 5 | 11.579997 | 0.9999 | 0.000221 | 0.000028 | 4.412 | PASS |
+| polblogs | 16 | 5 | 14.117646 | 1.0000 | 0.000181 | 0.000011 | 4.536 | PASS |
 
 ### Analysis
 
@@ -182,22 +182,28 @@ This result motivates the next optimization step: avoid full-vector synchronizat
 
 ### Required Weak Scaling Results
 
-Use this table for the final Dardel and school-cluster measurements after
-running `mpi/profile_mpi_weak.sh`. The 16-rank row must use the 200k-node /
-2M-edge graph, not `synthetic_100k_1m.csv`.
+Weak scaling was run with fixed per-rank work of 12,500 nodes and 125,000 edges.
+The 16-rank Dardel row uses the required 200k-node / 2M-edge graph, not
+`synthetic_100k_1m.csv`.
 
 | Platform | Dataset | Ranks | Runs | PR time avg (s) | Comm fraction | Weak efficiency | Edges/rank | Work imbalance | Status |
 |----------|---------|------:|-----:|----------------:|--------------:|----------------:|-----------:|---------------:|--------|
-| dardel | weak_1rank_12500_125000 | 1 | TBD | TBD | TBD | 1.000000 | 125,000 | TBD | TBD |
-| dardel | weak_2rank_25000_250000 | 2 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
-| dardel | weak_4rank_50000_500000 | 4 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
-| dardel | weak_8rank_100000_1000000 | 8 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
-| dardel | weak_16rank_200000_2000000 | 16 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| dardel | weak_1rank_12500_125000 | 1 | 5 | 0.003857 | 0.0338 | 1.000000000 | 125,000 | 1.000 | PASS |
+| dardel | weak_2rank_25000_250000 | 2 | 5 | 2.004018 | 0.9978 | 0.001924534 | 125,000 | 1.033 | PASS |
+| dardel | weak_4rank_50000_500000 | 4 | 5 | 2.101621 | 0.9975 | 0.001835155 | 125,000 | 1.044 | PASS |
+| dardel | weak_8rank_100000_1000000 | 8 | 5 | 9.919046 | 0.9987 | 0.000388828 | 125,000 | 1.044 | PASS |
+| dardel | weak_16rank_200000_2000000 | 16 | 5 | 23.825432 | 0.9992 | 0.000161877 | 125,000 | 1.051 | PASS |
 | cluster | weak_1rank_12500_125000 | 1 | TBD | TBD | TBD | 1.000000 | 125,000 | TBD | TBD |
 | cluster | weak_2rank_25000_250000 | 2 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
 | cluster | weak_4rank_50000_500000 | 4 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
 | cluster | weak_8rank_100000_1000000 | 8 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
 | cluster | weak_16rank_200000_2000000 | 16 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+
+The weak-scaling efficiency collapses for the same reason as strong scaling:
+even though the per-rank edge count remains fixed, every iteration still
+performs full-vector collectives whose message size grows with the global node
+count. For the 16-rank case, `MPI_Allgatherv` alone averages 21.812665 s out
+of 23.825432 s PR time.
 
 ---
 
@@ -234,5 +240,5 @@ These plots were regenerated from the Dardel CSV files after the run.
 - [x] Hybrid fixed-core profiling script.
 - [x] Final Dardel measurements.
 - [ ] Final school-cluster measurements.
-- [ ] Final Hybrid fixed-core measurements on Dardel or school cluster.
+- [x] Final Hybrid fixed-core measurements on the school cluster.
 - [x] Replace local smoke-test figures with Dardel figures.
