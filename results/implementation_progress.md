@@ -24,13 +24,17 @@ This report implements the attached execution plan and records what is now in th
 - Verification summary written to `results/verification_matrix.md`.
 - Current status: OpenMP vs serial is PASS on all datasets.
 
-## 4) MPI + Hybrid implementation (code completed, runtime pending on MPI host)
+## 4) MPI + Hybrid implementation and measured runs
 
 - Added `mpi/pagerank_mpi.c`.
 - Added `mpi/pagerank_hybrid.c`.
 - Added cluster runner `scripts/run_mpi_cluster.sh`.
 - Build wiring added in `scripts/build_all.sh`.
-- Current host lacks `mpicc/mpirun`, so execution must be done on cluster.
+- MPI strong scaling has been measured on Dardel and the school cluster.
+- Reproducible MPI weak scaling has been measured on both platforms through
+  the required 16-rank `200k nodes / 2M edges` case.
+- Hybrid fixed-core sweeps have been measured on the school cluster for
+  `P*N=16`.
 
 ## 5) Bottleneck-driven optimizations + GPU offload prototype (completed in code)
 
@@ -46,9 +50,15 @@ This report implements the attached execution plan and records what is now in th
 - Next-step execution guide: `results/next_steps_execution.md`.
 - README updated with end-to-end workflow and MPI/hybrid commands.
 
-## Immediate next runtime action on cluster
+## Remaining A-level runtime actions
 
-1. Run `scripts/build_all.sh` on MPI-enabled node.
-2. Run `scripts/run_mpi_cluster.sh`.
-3. Verify MPI/hybrid outputs with `verify/verify` against files under `references/`.
-4. Paste cluster scaling table into report from `results/scaling_cluster.md`.
+1. Run MPI strong/weak scaling across multiple Dardel compute nodes; current
+   Dardel results are single-node measurements.
+2. Measure OpenMP scaling against serial on Colab, KTH, and Dardel.
+3. Repeat the school-cluster Hybrid fixed-core search for additional total
+   worker budgets beyond `P*N=16`.
+4. Obtain a confirmed-device GPU timing comparison against Hybrid on a
+   comparable platform and dataset.
+
+See `results/a_grade_requirements_audit.md` for the evidence matrix and scope
+cautions.

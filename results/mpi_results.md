@@ -131,7 +131,7 @@ static allocation limit in the serial, MPI, and Hybrid readers.
 
 ```bash
 python3 tools/generate_graph.py --preset weak
-PLATFORM=cluster REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
+PLATFORM=cluster GENERATE_WEAK_GRAPHS=0 REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
 PLATFORM=dardel MPI_RUNNER=srun MPI_NP_FLAG=-n REPEAT=5 ./mpi/profile_mpi_weak.sh directed "1 2 4 8 16"
 ```
 
@@ -193,17 +193,23 @@ The 16-rank Dardel row uses the required 200k-node / 2M-edge graph, not
 | dardel | weak_4rank_50000_500000 | 4 | 5 | 2.101621 | 0.9975 | 0.001835155 | 125,000 | 1.044 | PASS |
 | dardel | weak_8rank_100000_1000000 | 8 | 5 | 9.919046 | 0.9987 | 0.000388828 | 125,000 | 1.044 | PASS |
 | dardel | weak_16rank_200000_2000000 | 16 | 5 | 23.825432 | 0.9992 | 0.000161877 | 125,000 | 1.051 | PASS |
-| cluster | weak_1rank_12500_125000 | 1 | TBD | TBD | TBD | 1.000000 | 125,000 | TBD | TBD |
-| cluster | weak_2rank_25000_250000 | 2 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
-| cluster | weak_4rank_50000_500000 | 4 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
-| cluster | weak_8rank_100000_1000000 | 8 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
-| cluster | weak_16rank_200000_2000000 | 16 | TBD | TBD | TBD | TBD | 125,000 | TBD | TBD |
+| cluster | weak_1rank_12500_125000 | 1 | 5 | 0.003310 | 0.0123 | 1.000000000 | 125,000 | 1.000 | PASS |
+| cluster | weak_2rank_25000_250000 | 2 | 5 | 0.005345 | 0.2442 | 0.619298836 | 125,000 | 1.033 | PASS |
+| cluster | weak_4rank_50000_500000 | 4 | 5 | 0.007542 | 0.4821 | 0.438951947 | 125,000 | 1.044 | PASS |
+| cluster | weak_8rank_100000_1000000 | 8 | 5 | 0.011587 | 0.5887 | 0.285694560 | 125,000 | 1.044 | PASS |
+| cluster | weak_16rank_200000_2000000 | 16 | 5 | 0.024371 | 0.6814 | 0.135833573 | 125,000 | 1.051 | PASS |
 
 The weak-scaling efficiency collapses for the same reason as strong scaling:
 even though the per-rank edge count remains fixed, every iteration still
 performs full-vector collectives whose message size grows with the global node
 count. For the 16-rank case, `MPI_Allgatherv` alone averages 21.812665 s out
 of 23.825432 s PR time.
+
+On the school cluster the same reproducibly generated graphs scale more
+smoothly, but communication still becomes dominant: weak efficiency falls to
+0.135834 and communication reaches 68.14% at 16 ranks. The Dardel and cluster
+rows use identical graph instances, as confirmed by equal per-rank in-edge
+work distributions for each rank count.
 
 ---
 
@@ -222,8 +228,11 @@ Generated figures:
 - `results/figures/mpi_runtime_breakdown.png`
 - `results/figures/mpi_comm_fraction.png`
 - `results/figures/mpi_workload_balance.png`
+- `results/figures/dardel_weak/mpi_weak_efficiency.png`
+- `results/figures/cluster_weak/mpi_weak_efficiency.png`
 
-These plots were regenerated from the Dardel CSV files after the run.
+These plots were regenerated from the Dardel and school-cluster CSV files after
+the final reproducible weak-scaling run.
 
 ---
 
@@ -238,7 +247,8 @@ These plots were regenerated from the Dardel CSV files after the run.
 - [x] Dardel and school-cluster submission scripts.
 - [x] Plotting pipeline for speedup, efficiency, runtime breakdown, communication fraction, and workload balance.
 - [x] Hybrid fixed-core profiling script.
-- [x] Final Dardel measurements.
-- [ ] Final school-cluster measurements.
+- [x] Final single-node Dardel measurements used in the present tables.
+- [ ] Multi-node Dardel strong/weak measurements required for full A-level scope.
+- [x] Final school-cluster MPI strong/weak measurements.
 - [x] Final Hybrid fixed-core measurements on the school cluster.
 - [x] Replace local smoke-test figures with Dardel figures.

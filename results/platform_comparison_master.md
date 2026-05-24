@@ -37,11 +37,11 @@ Main dataset:
 | openmp | dardel | threads=? |  |  |  |  |  |
 | mpi | local | ranks=4 | 0.0010 | 0.004730 | 108 | 0.41 | 0.10 |
 | mpi | colab | ranks=? |  |  |  |  |  |
-| mpi | kth | ranks=? |  |  |  |  |  |
-| mpi | dardel | ranks=16 | 0.0108 | 14.060021 | 108 | 0.000246 | 0.000015 |
+| mpi | kth | ranks=16 |  | 0.002844 | 108 | 0.8435 | 0.0527 |
+| mpi | dardel | ranks=16 | 0.0108 | 14.117646 | 108 | 0.000245 | 0.000015 |
 | hybrid | local | ranks=? x threads=? |  |  |  |  |  |
 | hybrid | colab | ranks=? x threads=? |  |  |  |  |  |
-| hybrid | kth | ranks=? x threads=? |  |  |  |  |  |
+| hybrid | kth | ranks=16 x threads=1 |  | 0.002907 | 108 | 0.8253 | 0.0516 |
 | hybrid | dardel | ranks=? x threads=? |  |  |  |  |  |
 | gpu | local | omp-target | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
 | gpu | colab | omp-target |  |  |  |  |  |
@@ -81,10 +81,11 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | local | polblogs.csv | 2 | 0.002522 | 0.70 | 0.35 |
 | local | polblogs.csv | 4 | 0.002598 | 0.68 | 0.17 |
 | local | polblogs.csv | 8 | 0.003797 | 0.47 | 0.06 |
-| kth | polblogs.csv | 1 |  | 1.00 | 1.00 |
-| kth | polblogs.csv | 2 |  |  |  |
-| kth | polblogs.csv | 4 |  |  |  |
-| kth | polblogs.csv | 8 |  |  |  |
+| kth | polblogs.csv | 1 | 0.001484 | 1.00 | 1.00 |
+| kth | polblogs.csv | 2 | 0.001889 | 0.785472 | 0.392736 |
+| kth | polblogs.csv | 4 | 0.002927 | 0.506936 | 0.126734 |
+| kth | polblogs.csv | 8 | 0.002461 | 0.602844 | 0.075356 |
+| kth | polblogs.csv | 16 | 0.002844 | 0.521733 | 0.032608 |
 | dardel | polblogs.csv | 1 |  | 1.00 | 1.00 |
 | dardel | polblogs.csv | 2 |  |  |  |
 | dardel | polblogs.csv | 4 |  |  |  |
@@ -109,11 +110,11 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 ### 3.3 MPI Weak Scaling (scaled synthetic dataset)
 | Platform | Dataset | Ranks | Nodes | Edges | Edges/rank | PR time (s) | Weak efficiency (= T1 / TP) | Status |
 |---|---|---:|---:|---:|---:|---:|---:|---|
-| kth | weak_1rank_12500_125000.csv | 1 | 12,500 | 125,000 | 125,000 |  | 1.00 | TBD |
-| kth | weak_2rank_25000_250000.csv | 2 | 25,000 | 250,000 | 125,000 |  |  | TBD |
-| kth | weak_4rank_50000_500000.csv | 4 | 50,000 | 500,000 | 125,000 |  |  | TBD |
-| kth | weak_8rank_100000_1000000.csv | 8 | 100,000 | 1,000,000 | 125,000 |  |  | TBD |
-| kth | weak_16rank_200000_2000000.csv | 16 | 200,000 | 2,000,000 | 125,000 |  |  | TBD |
+| kth | weak_1rank_12500_125000.csv | 1 | 12,500 | 125,000 | 125,000 | 0.003310 | 1.000000000 | PASS |
+| kth | weak_2rank_25000_250000.csv | 2 | 25,000 | 250,000 | 125,000 | 0.005345 | 0.619298836 | PASS |
+| kth | weak_4rank_50000_500000.csv | 4 | 50,000 | 500,000 | 125,000 | 0.007542 | 0.438951947 | PASS |
+| kth | weak_8rank_100000_1000000.csv | 8 | 100,000 | 1,000,000 | 125,000 | 0.011587 | 0.285694560 | PASS |
+| kth | weak_16rank_200000_2000000.csv | 16 | 200,000 | 2,000,000 | 125,000 | 0.024371 | 0.135833573 | PASS |
 | dardel | weak_1rank_12500_125000.csv | 1 | 12,500 | 125,000 | 125,000 | 0.003857 | 1.000000000 | PASS |
 | dardel | weak_2rank_25000_250000.csv | 2 | 25,000 | 250,000 | 125,000 | 2.004018 | 0.001924534 | PASS |
 | dardel | weak_4rank_50000_500000.csv | 4 | 50,000 | 500,000 | 125,000 | 2.101621 | 0.001835155 | PASS |
@@ -123,11 +124,11 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 ### 3.4 Hybrid Fixed-Core Search (P x N)
 | Platform | Dataset | Total cores | (P ranks, N threads) | PR time (s) | Best? |
 |---|---|---:|---|---:|---|
-| kth | polblogs.csv | 16 | (1,16) |  |  |
-| kth | polblogs.csv | 16 | (2,8) |  |  |
-| kth | polblogs.csv | 16 | (4,4) |  |  |
-| kth | polblogs.csv | 16 | (8,2) |  |  |
-| kth | polblogs.csv | 16 | (16,1) |  |  |
+| kth | polblogs.csv | 16 | (1,16) | 0.024310 |  |
+| kth | polblogs.csv | 16 | (2,8) | 0.010850 |  |
+| kth | polblogs.csv | 16 | (4,4) | 0.005325 |  |
+| kth | polblogs.csv | 16 | (8,2) | 0.004281 |  |
+| kth | polblogs.csv | 16 | (16,1) | 0.002907 | best |
 | dardel | synthetic_100k_1m.csv | 16 | (1,16) | 0.033687 |  |
 | dardel | synthetic_100k_1m.csv | 16 | (2,8) | 0.031593 |  |
 | dardel | synthetic_100k_1m.csv | 16 | (4,4) | 0.033026 |  |
@@ -147,6 +148,6 @@ measurements remain the main fixed-core evidence for final conclusions.
 - Local OpenMP scaling data: `results/scaling_local.md`
 - Correctness matrix (OpenMP/GPU): `results/verification_matrix.md`
 - Serial hotspot context: `results/hotspot_notes.md`, `results/gprof_polblogs.txt`, `results/perf_stat_polblogs.txt`
-- MPI local and Dardel runs: `results/mpi_scaling_polblogs_directed.csv`, `results/mpi_scaling_dardel_course_polblogs_directed.csv`, `results/mpi_weak_scaling_dardel_directed.csv`
+- MPI local, KTH, and Dardel runs: `results/mpi_scaling_polblogs_directed.csv`, `results/mpi_scaling_cluster_polblogs_directed.csv`, `results/mpi_scaling_dardel_course_polblogs_directed.csv`, `results/mpi_weak_scaling_cluster_directed.csv`, `results/mpi_weak_scaling_dardel_directed.csv`
 - Hybrid fixed-core runs: `mpi/profile_hybrid.sh` -> `results/hybrid_fixedcore_<platform>_<dataset>_<mode>.csv`
 - School-cluster MPI/Hybrid runs: `run_mpi_cluster.sh` -> result CSV files to be generated on an MPI-enabled cluster
