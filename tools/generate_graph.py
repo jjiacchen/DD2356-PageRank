@@ -29,6 +29,9 @@ PRESETS: Dict[str, List[Tuple[int, int, str]]] = {
         (100_000, 1_000_000, "weak_8rank_100000_1000000.csv"),
         (200_000, 2_000_000, "weak_16rank_200000_2000000.csv"),
     ],
+    "optimization": [
+        (100_000, 1_000_000, "skewed_100k_1m.csv"),
+    ],
 }
 
 
@@ -47,6 +50,33 @@ def generate_graph(path: Path, nodes: int, edges: int, seed: int) -> None:
             dst = rng.randrange(nodes - 1)
             if dst >= src:
                 dst += 1
+            f.write(f"{src},0,{dst},0\n")
+
+
+def generate_skewed_graph(path: Path, nodes: int, edges: int, seed: int) -> None:
+    """Generate a stable hot-destination graph for thread-scheduling evidence."""
+    if nodes < 2:
+        raise ValueError("nodes must be at least 2")
+    if edges < nodes:
+        raise ValueError("skewed graph needs at least one cycle edge per node")
+
+    rng = random.Random(seed)
+    hot_nodes = max(1, nodes // 16)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("w", encoding="utf-8") as f:
+        # Stabilize parser-assigned node IDs so the hot region is contiguous.
+        for src in range(nodes):
+            f.write(f"{src},0,{(src + 1) % nodes},0\n")
+
+        for _ in range(edges - nodes):
+            src = rng.randrange(nodes)
+            if rng.random() < 0.8:
+                dst = rng.randrange(hot_nodes)
+            else:
+                dst = rng.randrange(nodes)
+            if dst == src:
+                dst = (dst + 1) % nodes
             f.write(f"{src},0,{dst},0\n")
 
 
@@ -76,7 +106,10 @@ def main() -> None:
     if args.preset:
         for i, (nodes, edges, filename) in enumerate(PRESETS[args.preset]):
             out = args.output_dir / filename
-            generate_graph(out, nodes, edges, args.seed + i)
+            if args.preset == "optimization":
+                generate_skewed_graph(out, nodes, edges, args.seed + i)
+            else:
+                generate_graph(out, nodes, edges, args.seed + i)
             print(f"wrote {out} ({nodes} nodes, {edges} edges)")
         return
 

@@ -48,6 +48,7 @@ CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 ./mpi/profile_hybrid.sh data/polblogs
 ```
 
 ## Hybrid Optimization Ablation
+The earlier fixed-16-worker ablation remains useful diagnostic evidence:
 ```bash
 REPEAT=10 OUTPUT_PREFIX=cluster_ ./mpi/profile_optimization_ablation.sh data/synthetic/synthetic_100k_1m.csv directed "1x16 4x4"
 REPEAT=30 OUTPUT_PREFIX=cluster_ ./mpi/profile_optimization_ablation.sh data/polblogs.csv directed "1x16 4x4"
@@ -55,11 +56,34 @@ REPEAT=30 OUTPUT_PREFIX=cluster_ ./mpi/profile_optimization_ablation.sh data/pol
 
 The ablation profiler compares four Hybrid MPI+OpenMP variants:
 `no_inv_static`, `inv_static`, `no_inv_dynamic`, and `inv_dynamic`. It writes
-`results/optimization_ablation_<dataset>_<mode>.csv` plus the raw repeat-level
-CSV. On Open MPI wrappers that default to Apple clang, use the same compiler
-override as the fixed-core Hybrid profiler:
+summary and raw repeat-level CSV files. It can also collect update-kernel
+timings, per-thread incoming-edge work, and efficiency against a required
+`1x1` baseline.
+
+For formal Wang optimization evidence, start a DD2356 JupyterHub
+`Medium CPU Only` server (at least 16 CPUs), then run:
 ```bash
-CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 REPEAT=10 OUTPUT_PREFIX=cluster_ ./mpi/profile_optimization_ablation.sh data/synthetic/synthetic_100k_1m.csv directed "1x16 4x4"
+git clone --branch codex/wang-dardel-experiments \
+  https://github.com/jjiacchen/DD2356-PageRank.git \
+  DD2356-PageRank-optimization
+cd ~/DD2356-PageRank-optimization
+REPEAT=10 WARMUP=1 ./scripts/run_cluster_optimization_evidence.sh \
+  2>&1 | tee cluster_optimization_console.log
+```
+
+The formal runner generates the regular and controlled-skew input graphs,
+records OpenMPI binding evidence, measures all four variants at
+`1x1 1x2 1x4 1x8 1x16 2x8 4x4 8x2 16x1`, and validates the output with
+`tools/analyze_optimization_results.py`. Download
+`wang_cluster_optimization_results.tar.gz` after completion.
+
+On Open MPI wrappers that default to Apple clang, use the same compiler
+override for local exploratory runs:
+```bash
+python3 tools/generate_graph.py --preset smoke
+CC=gcc-15 OMPI_CC=/opt/homebrew/bin/gcc-15 OUTPUT_PREFIX=smoke_ REPEAT=1 \
+  THREAD_WORK_PROFILE=1 REQUIRE_1X1_BASELINE=1 \
+  ./mpi/profile_optimization_ablation.sh data/synthetic/synthetic_1k_10k.csv directed "1x1 1x2"
 ```
 
 ## Wang MPI Workflow Before Cluster Runs

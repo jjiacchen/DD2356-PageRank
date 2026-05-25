@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 #include <mpi.h>
 #include <omp.h>
 
@@ -94,6 +95,7 @@ typedef struct {
     double dangling_reduce;
     double diff_reduce;
     double allgatherv;
+    double update_kernel;
 } MpiTiming;
 
 typedef struct {
@@ -294,6 +296,7 @@ int main(int argc, char **argv) {
     int max_iter = (argc > 6) ? atoi(argv[6]) : 1000;
     const char *out_file = (argc > 7) ? argv[7] : "pagerank_hybrid_output.txt";
     if (threads < 1) threads = 1;
+    omp_set_dynamic(0);
     omp_set_num_threads(threads);
 
     if (rank == 0) {
@@ -302,6 +305,16 @@ int main(int argc, char **argv) {
         printf("Mode      : %s\n", directed ? "directed" : "undirected");
         printf("MPI ranks : %d\n", size);
         printf("Threads   : %d\n", threads);
+#ifdef PR_DISABLE_INV_OUT_DEG
+        printf("Out degree term : division\n");
+#else
+        printf("Out degree term : cached reciprocal\n");
+#endif
+#ifdef PR_UPDATE_SCHEDULE_STATIC
+        printf("Update schedule : static\n");
+#else
+        printf("Update schedule : dynamic,256\n");
+#endif
         printf("Damping   : %.4f\n", damping);
         printf("Tolerance : %.2e\n", tol);
         printf("Max iter  : %d\n\n", max_iter);
@@ -358,9 +371,69 @@ int main(int argc, char **argv) {
     make_counts_displs(N, size, recvcounts, displs);
     for (int i = 0; i < N; i++) pr[i] = 1.0 / N;
 
+    const char *profile_thread_work = getenv("PR_PROFILE_THREAD_WORK");
+    if (profile_thread_work && strcmp(profile_thread_work, "0") != 0) {
+        long long *thread_edges = xcalloc((size_t)threads, sizeof(long long));
+        double *thread_sink = xcalloc((size_t)threads, sizeof(double));
+        int actual_threads = 0;
+#pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            long long edges_seen = 0;
+            double sink = 0.0;
+#pragma omp single
+            actual_threads = omp_get_num_threads();
+#ifdef PR_UPDATE_SCHEDULE_STATIC
+#pragma omp for schedule(static)
+#else
+#pragma omp for schedule(dynamic, 256)
+#endif
+            for (int v = begin; v < end; v++) {
+                edges_seen += (long long)(g->row_ptr[v + 1] - g->row_ptr[v]);
+                for (int k = g->row_ptr[v]; k < g->row_ptr[v + 1]; k++) {
+                    int u = g->col_idx[k];
+#ifdef PR_DISABLE_INV_OUT_DEG
+                    if (g->out_degree[u] != 0) sink += pr[u] / (double)g->out_degree[u];
+#else
+                    sink += pr[u] * g->inv_out_degree[u];
+#endif
+                }
+            }
+            thread_edges[tid] = edges_seen;
+            thread_sink[tid] = sink;
+        }
+
+        long long local_min = LLONG_MAX, local_max = 0, local_sum = 0;
+        double local_sink = 0.0;
+        for (int t = 0; t < actual_threads; t++) {
+            if (thread_edges[t] < local_min) local_min = thread_edges[t];
+            if (thread_edges[t] > local_max) local_max = thread_edges[t];
+            local_sum += thread_edges[t];
+            local_sink += thread_sink[t];
+        }
+
+        long long global_min = 0, global_max = 0, global_sum = 0;
+        int global_workers = 0;
+        double global_sink = 0.0;
+        MPI_Reduce(&local_min, &global_min, 1, MPI_LONG_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&local_max, &global_max, 1, MPI_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&local_sum, &global_sum, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&actual_threads, &global_workers, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&local_sink, &global_sink, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        if (rank == 0) {
+            double avg = global_workers > 0 ? global_sum / (double)global_workers : 0.0;
+            double imbalance = avg > 0.0 ? global_max / avg : 0.0;
+            printf("Thread work inedges : min=%lld avg=%.2f max=%lld imbalance=%.6f workers=%d\n",
+                   global_min, avg, global_max, imbalance, global_workers);
+            printf("Thread work probe checksum : %.12e\n\n", global_sink);
+        }
+        free(thread_edges);
+        free(thread_sink);
+    }
+
     double base = (1.0 - damping) / N;
     int iters = 0;
-    MpiTiming timing = {0.0, 0.0, 0.0};
+    MpiTiming timing = {0.0, 0.0, 0.0, 0.0};
     MPI_Barrier(MPI_COMM_WORLD);
     double t0 = MPI_Wtime();
     for (int iter = 0; iter < max_iter; iter++) {
@@ -376,6 +449,7 @@ int main(int argc, char **argv) {
         timing.dangling_reduce += MPI_Wtime() - tc;
         double dang = damping * dangling / N;
 
+        double tu = MPI_Wtime();
 #ifdef PR_UPDATE_SCHEDULE_STATIC
 #pragma omp parallel for schedule(static)
 #else
@@ -393,6 +467,7 @@ int main(int argc, char **argv) {
             }
             pr_new[v] = base + dang + damping * s;
         }
+        timing.update_kernel += MPI_Wtime() - tu;
 
         double diff_local = 0.0;
 #pragma omp parallel for reduction(+:diff_local) schedule(static)
@@ -413,12 +488,13 @@ int main(int argc, char **argv) {
     double local_pr_t = MPI_Wtime() - t0;
     double local_comm_t = timing.dangling_reduce + timing.diff_reduce + timing.allgatherv;
 
-    double pr_t = 0.0, comm_t = 0.0, dangling_t = 0.0, diff_t = 0.0, allgatherv_t = 0.0;
+    double pr_t = 0.0, comm_t = 0.0, dangling_t = 0.0, diff_t = 0.0, allgatherv_t = 0.0, update_t = 0.0;
     MPI_Reduce(&local_pr_t, &pr_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&local_comm_t, &comm_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&timing.dangling_reduce, &dangling_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&timing.diff_reduce, &diff_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&timing.allgatherv, &allgatherv_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&timing.update_kernel, &update_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     double sum = 0.0;
     for (int i = 0; i < N; i++) sum += pr[i];
@@ -433,6 +509,7 @@ int main(int argc, char **argv) {
         printf("Dangling reduce time : %.6f s  (max rank)\n", dangling_t);
         printf("Diff reduce time     : %.6f s  (max rank)\n", diff_t);
         printf("Allgatherv time      : %.6f s  (max rank)\n", allgatherv_t);
+        printf("Update kernel time   : %.6f s  (max rank)\n", update_t);
         printf("Total time : %.6f s  (load + PR)\n", load_t + pr_t);
         printf("PR sum     : %.10f  (range across ranks: %.10f..%.10f)\n",
                sum, min_sum, max_sum);

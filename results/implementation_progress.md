@@ -38,7 +38,7 @@ This report implements the attached execution plan and records what is now in th
 - Hybrid fixed-core sweeps have been measured on the school cluster for
   `P*N=16`.
 
-## 5) Bottleneck-driven optimizations + GPU offload validation (completed)
+## 5) Bottleneck-driven optimizations + GPU offload validation (GPU complete; optimization evidence pending run)
 
 - Optimization A: precomputed reciprocal out-degree (`inv_out_degree`) to avoid repeated divides in hot loops.
 - Optimization B: OpenMP sparse loop scheduling (`dynamic,256`) for irregular incoming-edge workloads.
@@ -48,6 +48,12 @@ This report implements the attached execution plan and records what is now in th
   `MIG 1g.10gb`) passes all nine course datasets and all timed GPU repetitions.
 - On `synthetic_100k_1m.csv`, persistent GPU offload is `1.776212x` faster
   than naive GPU offload; the same-server Hybrid `4x2` control remains faster.
+- Added `scripts/run_cluster_optimization_evidence.sh` for formal Medium-CPU
+  before/after measurement with valid core binding, `1x1` efficiency
+  baselines, update-kernel timing, and thread-level work diagnostics.
+- Added deterministic `skewed_100k_1m.csv` generation so dynamic scheduling is
+  evaluated against a controlled irregular-load stress input rather than
+  inferred from MPI-rank imbalance.
 
 ## 6) Consolidation assets (completed)
 
@@ -62,6 +68,8 @@ This report implements the attached execution plan and records what is now in th
    (Minyi Zhu's OpenMP-analysis scope).
 2. Repeat the school-cluster Hybrid fixed-core search for additional total
    worker budgets beyond `P*N=16` (Minyi Zhu's hybrid-analysis scope).
+3. Run the Medium-CPU optimization-evidence workflow and integrate its
+   before/after parallel-efficiency tables (Pengyu Wang's optimization scope).
 
 See `results/a_grade_requirements_audit.md` for the evidence matrix and scope
 cautions.
