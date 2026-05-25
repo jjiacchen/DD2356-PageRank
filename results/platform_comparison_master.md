@@ -35,7 +35,8 @@ Main dataset:
 | openmp | local | threads=4 | TBD | 0.002598 | 108 | 0.75 | 0.19 |
 | openmp | local | threads=8 | TBD | 0.003797 | 108 | 0.51 | 0.06 |
 | openmp | colab | threads=2 (best) | TBD | 0.003090 | 108 | 1.20 | 0.60 |
-| openmp | kth | threads=? |  |  |  |  |  |
+| openmp | kth | threads=8 (best, synthetic_100k_1m) | TBD | 0.009724 | 19 | 3.57 | 0.45 |
+| openmp | kth | threads=32 (peak speedup, synthetic_100k_1m) | TBD | 0.007747 | 19 | 4.48 | 0.14 |
 | openmp | dardel | threads=? |  |  |  |  |  |
 | mpi | local | ranks=4 | 0.0010 | 0.004730 | 108 | 0.41 | 0.10 |
 | mpi | colab | ranks=? |  |  |  |  |  |
@@ -43,6 +44,7 @@ Main dataset:
 | mpi | dardel | ranks=16 | 0.0108 | 14.117646 | 108 | 0.000245 | 0.000015 |
 | hybrid | local | ranks=? x threads=? |  |  |  |  |  |
 | hybrid | colab | ranks=1 x threads=2 (best, P*N=2) | TBD | 0.003168 | 108 | 1.17 | 0.59 |
+| hybrid | kth | ranks=2 x threads=4 (best, P*N=8, synthetic) | TBD | 0.016310 | 19 | 2.13 | 0.27 |
 | hybrid | kth | ranks=16 x threads=1 |  | 0.002907 | 108 | 0.8253 | 0.0516 |
 | hybrid | dardel | ranks=? x threads=? |  |  |  |  |  |
 | gpu | local | omp-target fallback (diagnostic) | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
@@ -89,11 +91,20 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | colab | synthetic_100k_1m.csv | 1 | 0.107972 | 1.000 | 1.000 |
 | colab | synthetic_100k_1m.csv | 2 | 0.128534 | 0.840 | 0.420 |
 | colab | synthetic_100k_1m.csv | 4 | 0.084794 | 1.273 | 0.318 |
-| kth | polblogs.csv | 1 | 0.001484 | 1.00 | 1.00 |
-| kth | polblogs.csv | 2 | 0.001889 | 0.785472 | 0.392736 |
-| kth | polblogs.csv | 4 | 0.002927 | 0.506936 | 0.126734 |
-| kth | polblogs.csv | 8 | 0.002461 | 0.602844 | 0.075356 |
-| kth | polblogs.csv | 16 | 0.002844 | 0.521733 | 0.032608 |
+| kth | polblogs.csv | 1 | 0.001719 | 1.000 | 1.000 |
+| kth | polblogs.csv | 2 | 0.002092 | 0.822 | 0.411 |
+| kth | polblogs.csv | 4 | 0.001865 | 0.922 | 0.230 |
+| kth | polblogs.csv | 8 | 0.002724 | 0.631 | 0.079 |
+| kth | polblogs.csv | 16 | 0.004325 | 0.398 | 0.025 |
+| kth | polblogs.csv | 32 | 0.007671 | 0.224 | 0.007 |
+| kth | polblogs.csv | 64 | 0.020535 | 0.084 | 0.001 |
+| kth | synthetic_100k_1m.csv | 1 | 0.034672 | 1.000 | 1.000 |
+| kth | synthetic_100k_1m.csv | 2 | 0.023408 | 1.481 | 0.741 |
+| kth | synthetic_100k_1m.csv | 4 | 0.014078 | 2.463 | 0.616 |
+| kth | synthetic_100k_1m.csv | 8 | 0.009724 | 3.566 | 0.446 |
+| kth | synthetic_100k_1m.csv | 16 | 0.012408 | 2.794 | 0.175 |
+| kth | synthetic_100k_1m.csv | 32 | 0.007747 | 4.476 | 0.140 |
+| kth | synthetic_100k_1m.csv | 64 | 0.018960 | 1.829 | 0.029 |
 | dardel | polblogs.csv | 1 |  | 1.00 | 1.00 |
 | dardel | polblogs.csv | 2 |  |  |  |
 | dardel | polblogs.csv | 4 |  |  |  |
@@ -137,6 +148,13 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | colab (2 vCPU) | polblogs.csv | 4 | (1,4) | 0.023704 | oversubscribed |
 | colab (2 vCPU) | polblogs.csv | 4 | (2,2) | 0.872550 | oversubscribed |
 | colab (2 vCPU) | polblogs.csv | 4 | (4,1) | 0.010345 | oversubscribed |
+| kth | synthetic_100k_1m.csv | 4 | (1,4) | 0.027446 |  |
+| kth | synthetic_100k_1m.csv | 4 | (2,2) | 0.016788 | best |
+| kth | synthetic_100k_1m.csv | 4 | (4,1) | 0.034331 |  |
+| kth | synthetic_100k_1m.csv | 8 | (1,8) | 0.027021 |  |
+| kth | synthetic_100k_1m.csv | 8 | (2,4) | 0.016310 | best |
+| kth | synthetic_100k_1m.csv | 8 | (4,2) | 0.023685 |  |
+| kth | synthetic_100k_1m.csv | 8 | (8,1) | 3.689258 | Allgatherv bottleneck (99.5% comm; 226x worse than (2,4)) |
 | kth | polblogs.csv | 16 | (1,16) | 0.024310 |  |
 | kth | polblogs.csv | 16 | (2,8) | 0.010850 |  |
 | kth | polblogs.csv | 16 | (4,4) | 0.005325 |  |
@@ -152,6 +170,20 @@ The Dardel hybrid rows are retained as provisional because the allocation was
 created with `--cpus-per-task=1`, so Slurm emitted warnings when the hybrid job
 steps requested more than one CPU per MPI rank. The school-cluster hybrid
 measurements remain the main fixed-core evidence for final conclusions.
+
+The KTH JupyterHub measurements on `synthetic_100k_1m.csv` add the first
+multi-budget Hybrid evidence required by the proposal. Across both `P*N = 4`
+and `P*N = 8`, the optimal layout sits at `(2, 2)` and `(2, 4)` respectively,
+both yielding PR time around `16` ms with `comm fraction` near `16%`. The
+`(8, 1)` layout at `P*N = 8` collapses to `3.69` s with `99.5%` communication
+fraction, demonstrating that pure-MPI scaling on a single shared node is
+bounded by Allgatherv on the `100k`-element rank vector once rank count
+exceeds the few-rank regime; this matches the Dardel `(16, 1)` collapse to
+`17.3` s on the same graph and motivates the Hybrid model directly.
+Crucially, doubling the worker budget from `P*N = 4` to `P*N = 8` only
+shortens PR time from `16.79` ms to `16.31` ms (a `1.03x` improvement), which
+shows the OpenMP scaling ceiling identified in §3.1 (memory bandwidth bound
+near T = 8) also caps the Hybrid sweet spot on this node.
 
 Colab provides only `2` vCPUs on a shared host (Intel Xeon @ 2.20 GHz), so it
 contributes a controlled oversubscription contrast rather than a high-rank
@@ -218,6 +250,8 @@ thread-only `1x8` and `1x16` layouts.
 - Serial baseline data: `results/baseline_results.md`
 - Local OpenMP scaling data: `results/scaling_local.md`
 - Colab OpenMP scaling data: `results/openmp_scaling_colab.csv` (per-run logs under `results/openmp_scaling_colab/`)
+- KTH OpenMP scaling data: `results/openmp_scaling_kth.csv` (per-run logs under `results/openmp_scaling_kth/`); supersedes the earlier single-run polblogs rows
+- KTH Hybrid fixed-core data: `results/hybrid_fixedcore_cluster_pn4_synthetic_100k_1m_directed.csv` (P*N=4), `results/hybrid_fixedcore_cluster_pn8_synthetic_100k_1m_directed.csv` (P*N=8); existing `results/hybrid_fixedcore_cluster_polblogs_directed.csv` retains P*N=16 polblogs sweep
 - Colab Hybrid fixed-core data: `results/hybrid_fixedcore_colab_pn2_polblogs_directed.csv`, `results/hybrid_fixedcore_colab_pn4_polblogs_directed.csv` (P*N=4 oversubscribed)
 - Correctness matrix (OpenMP/GPU): `results/verification_matrix.md`
 - Serial hotspot context: `results/hotspot_notes.md`, `results/gprof_polblogs.txt`, `results/perf_stat_polblogs.txt`
