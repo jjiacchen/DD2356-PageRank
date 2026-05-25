@@ -34,7 +34,7 @@ Main dataset:
 | openmp | local | threads=2 | TBD | 0.002522 | 108 | 0.77 | 0.39 |
 | openmp | local | threads=4 | TBD | 0.002598 | 108 | 0.75 | 0.19 |
 | openmp | local | threads=8 | TBD | 0.003797 | 108 | 0.51 | 0.06 |
-| openmp | colab | threads=? |  |  |  |  |  |
+| openmp | colab | threads=2 (best) | TBD | 0.003090 | 108 | 1.20 | 0.60 |
 | openmp | kth | threads=? |  |  |  |  |  |
 | openmp | dardel | threads=? |  |  |  |  |  |
 | mpi | local | ranks=4 | 0.0010 | 0.004730 | 108 | 0.41 | 0.10 |
@@ -42,7 +42,7 @@ Main dataset:
 | mpi | kth | ranks=16 |  | 0.002844 | 108 | 0.8435 | 0.0527 |
 | mpi | dardel | ranks=16 | 0.0108 | 14.117646 | 108 | 0.000245 | 0.000015 |
 | hybrid | local | ranks=? x threads=? |  |  |  |  |  |
-| hybrid | colab | ranks=? x threads=? |  |  |  |  |  |
+| hybrid | colab | ranks=1 x threads=2 (best, P*N=2) | TBD | 0.003168 | 108 | 1.17 | 0.59 |
 | hybrid | kth | ranks=16 x threads=1 |  | 0.002907 | 108 | 0.8253 | 0.0516 |
 | hybrid | dardel | ranks=? x threads=? |  |  |  |  |  |
 | gpu | local | omp-target fallback (diagnostic) | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
@@ -83,6 +83,12 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | local | polblogs.csv | 2 | 0.002522 | 0.70 | 0.35 |
 | local | polblogs.csv | 4 | 0.002598 | 0.68 | 0.17 |
 | local | polblogs.csv | 8 | 0.003797 | 0.47 | 0.06 |
+| colab | polblogs.csv | 1 | 0.003715 | 1.000 | 1.000 |
+| colab | polblogs.csv | 2 | 0.003090 | 1.202 | 0.601 |
+| colab | polblogs.csv | 4 | 0.011389 | 0.326 | 0.082 |
+| colab | synthetic_100k_1m.csv | 1 | 0.107972 | 1.000 | 1.000 |
+| colab | synthetic_100k_1m.csv | 2 | 0.128534 | 0.840 | 0.420 |
+| colab | synthetic_100k_1m.csv | 4 | 0.084794 | 1.273 | 0.318 |
 | kth | polblogs.csv | 1 | 0.001484 | 1.00 | 1.00 |
 | kth | polblogs.csv | 2 | 0.001889 | 0.785472 | 0.392736 |
 | kth | polblogs.csv | 4 | 0.002927 | 0.506936 | 0.126734 |
@@ -126,6 +132,11 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 ### 3.4 Hybrid Fixed-Core Search (P x N)
 | Platform | Dataset | Total cores | (P ranks, N threads) | PR time (s) | Best? |
 |---|---|---:|---|---:|---|
+| colab (2 vCPU) | polblogs.csv | 2 | (1,2) | 0.003168 | best |
+| colab (2 vCPU) | polblogs.csv | 2 | (2,1) | 0.005025 |  |
+| colab (2 vCPU) | polblogs.csv | 4 | (1,4) | 0.023704 | oversubscribed |
+| colab (2 vCPU) | polblogs.csv | 4 | (2,2) | 0.872550 | oversubscribed |
+| colab (2 vCPU) | polblogs.csv | 4 | (4,1) | 0.010345 | oversubscribed |
 | kth | polblogs.csv | 16 | (1,16) | 0.024310 |  |
 | kth | polblogs.csv | 16 | (2,8) | 0.010850 |  |
 | kth | polblogs.csv | 16 | (4,4) | 0.005325 |  |
@@ -141,6 +152,24 @@ The Dardel hybrid rows are retained as provisional because the allocation was
 created with `--cpus-per-task=1`, so Slurm emitted warnings when the hybrid job
 steps requested more than one CPU per MPI rank. The school-cluster hybrid
 measurements remain the main fixed-core evidence for final conclusions.
+
+Colab provides only `2` vCPUs on a shared host (Intel Xeon @ 2.20 GHz), so it
+contributes a controlled oversubscription contrast rather than a high-rank
+scaling point. The `P*N = 2` rows are the meaningful measurements: `(1, 2)`
+runs faster than `(2, 1)` because the within-process OpenMP path avoids the
+Allreduce + Allgatherv overhead (comm fraction `1.8%` vs `77.3%`). The
+`P*N = 4` rows are kept as oversubscription evidence: requesting four total
+workers on two cores degrades PR time by `3.3x` for `(1, 4)`, `7.7x` for
+`(4, 1)`, and catastrophically by `275x` for `(2, 2)` because two MPI ranks
+each spawning two threads compete with the kernel scheduler on every barrier.
+Mirror behaviour appears in the OpenMP-only column: T=4 on polblogs degrades
+to `0.011389 s` (efficiency `0.082`), while the larger
+`synthetic_100k_1m.csv` graph remains memory-bound enough that even
+oversubscribed T=4 (`0.084794 s`) beats the noisier T=2 average (`0.128534 s`).
+The Colab data therefore confirms two report claims: (a) intra-node OpenMP
+beats fine-grained MPI when total workers equal physical cores, and (b) the
+Hybrid model relies on `P*N <= physical_cores` to stay above the comm/sched
+break-even.
 
 ### 3.5 Confirmed-Device GPU Comparison (same Small GPU server)
 
@@ -188,6 +217,8 @@ thread-only `1x8` and `1x16` layouts.
 
 - Serial baseline data: `results/baseline_results.md`
 - Local OpenMP scaling data: `results/scaling_local.md`
+- Colab OpenMP scaling data: `results/openmp_scaling_colab.csv` (per-run logs under `results/openmp_scaling_colab/`)
+- Colab Hybrid fixed-core data: `results/hybrid_fixedcore_colab_pn2_polblogs_directed.csv`, `results/hybrid_fixedcore_colab_pn4_polblogs_directed.csv` (P*N=4 oversubscribed)
 - Correctness matrix (OpenMP/GPU): `results/verification_matrix.md`
 - Serial hotspot context: `results/hotspot_notes.md`, `results/gprof_polblogs.txt`, `results/perf_stat_polblogs.txt`
 - MPI local, KTH, and Dardel runs: `results/mpi_scaling_polblogs_directed.csv`, `results/mpi_scaling_cluster_polblogs_directed.csv`, `results/mpi_scaling_dardel_multinode_course_polblogs_directed.csv`, `results/mpi_weak_scaling_cluster_directed.csv`, `results/mpi_weak_scaling_dardel_multinode_directed.csv`
