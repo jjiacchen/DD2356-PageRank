@@ -38,12 +38,16 @@ This report implements the attached execution plan and records what is now in th
 - Hybrid fixed-core sweeps have been measured on the school cluster for
   `P*N=16`.
 
-## 5) Bottleneck-driven optimizations + GPU offload prototype (completed in code)
+## 5) Bottleneck-driven optimizations + GPU offload validation (completed)
 
 - Optimization A: precomputed reciprocal out-degree (`inv_out_degree`) to avoid repeated divides in hot loops.
 - Optimization B: OpenMP sparse loop scheduling (`dynamic,256`) for irregular incoming-edge workloads.
 - GPU/offload comparison path: `openmp/pagerank_openmp_gpu.c`.
-- Current verification matrix shows GPU output also matches serial on all datasets.
+- GPU profiling compares naive remapping with persistent device data regions.
+- A confirmed-device run on the DD2356 Small GPU server (NVIDIA H100
+  `MIG 1g.10gb`) passes all nine course datasets and all timed GPU repetitions.
+- On `synthetic_100k_1m.csv`, persistent GPU offload is `1.776212x` faster
+  than naive GPU offload; the same-server Hybrid `4x2` control remains faster.
 
 ## 6) Consolidation assets (completed)
 
@@ -58,8 +62,6 @@ This report implements the attached execution plan and records what is now in th
    (Minyi Zhu's OpenMP-analysis scope).
 2. Repeat the school-cluster Hybrid fixed-core search for additional total
    worker budgets beyond `P*N=16` (Minyi Zhu's hybrid-analysis scope).
-3. Obtain a confirmed-device GPU timing comparison against Hybrid on a
-   comparable platform and dataset.
 
 See `results/a_grade_requirements_audit.md` for the evidence matrix and scope
 cautions.

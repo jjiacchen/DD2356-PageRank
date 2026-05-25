@@ -1,0 +1,14 @@
+=== GPU environment evidence ===
+Mon May 25 18:07:48 CEST 2026
+jupyter-pengyuw
+Linux jupyter-pengyuw 5.15.0-1085-nvidia #86-Ubuntu SMP Fri Jul 25 16:45:26 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+
+/usr/bin/nvidia-smi
+GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-5a6a4290-ccdf-eae4-9bec-40809e851043)
+  MIG 1g.10gb     Device  0: (UUID: MIG-dfa20012-a10a-5d24-b817-1bbc16dc8089)
+NVIDIA H100 80GB HBM3, GPU-5a6a4290-ccdf-eae4-9bec-40809e851043, [Insufficient Permissions], 535.247.01
+
+/usr/bin/gcc
+gcc (Ubuntu 12.3.0-1ubuntu1~22.04.3) 12.3.0
+/usr/bin/mpicc
+gcc

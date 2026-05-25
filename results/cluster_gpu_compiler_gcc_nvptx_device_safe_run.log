@@ -1,0 +1,19 @@
+=== OpenMP Target PageRank ===
+File       : data/karateDir.csv
+Mode       : directed
+GPU variant: persistent
+Nodes      : 34
+Edges      : 78
+Target devices : 1
+Target device id : 0
+Target executed on device: YES
+Device verified : YES
+Load time  : 0.000810 s
+Iterations : 22
+Target setup time : 0.000016 s
+Iteration/kernel time : 0.012262 s
+Target teardown time : 0.000105 s
+PR time    : 0.012384 s
+Total time : 0.013194 s
+PR sum     : 1.0000000000
+Results saved: /tmp/pagerank_gpu_probe_jovyan_gcc_nvptx_device_safe.txt

@@ -1,0 +1,5 @@
+platform,implementation,configuration,dataset,mode,pr_time_avg_s,total_time_avg_s,speedup_vs_serial,executed_on_device,status
+cluster_gpu,serial,serial,synthetic_100k_1m,directed,0.036452000,0.036452000,1.000000000,N/A,REFERENCE
+cluster_gpu,gpu,naive,synthetic_100k_1m,directed,0.059829200,0.257351200,0.609267715,YES,PASS
+cluster_gpu,gpu,persistent,synthetic_100k_1m,directed,0.033683600,0.230778800,1.082188365,YES,PASS
+cluster_gpu,hybrid,4x2,synthetic_100k_1m,directed,0.010364200,0.218843200,3.517106964,N/A,PASS

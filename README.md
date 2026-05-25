@@ -88,7 +88,7 @@ python3 tools/plot_mpi_results.py results/mpi_scaling_synthetic_10k_100k_directe
 
 The plotting script requires Pillow. If the default Python does not have it, use the bundled Codex runtime Python shown by the app or run the plotting step on a machine with Pillow installed.
 
-## Dardel GPU Offloading Profile
+## GPU Offloading Profile
 The GPU executable accepts a final `naive` or `persistent` variant argument.
 The persistent variant keeps the CSR graph and PageRank buffers resident in
 target memory across the iteration loop. Formal GPU runs set
@@ -106,7 +106,7 @@ sbatch scripts/run_dardel_gpu_comparison.sh
 python3 tools/plot_gpu_results.py \
   results/gpu_vs_hybrid_dardel_gpu_synthetic_100k_1m_directed.csv \
   results/gpu_offload_dardel_gpu_synthetic_100k_1m_directed.csv \
-  --out-dir results/figures/dardel_gpu
+  --out-dir results/figures/dardel_gpu --platform-label "Dardel GPU Node"
 ```
 
 The Dardel GPU runner follows PDC's AMD GPU environment:
@@ -131,8 +131,14 @@ REPEAT=5 ./scripts/run_cluster_gpu_comparison.sh
 ```
 
 On success, download `wang_cluster_gpu_results.tar.gz` from JupyterLab and
-extract it locally before running `tools/plot_gpu_results.py` with the
-`cluster_gpu` CSV filenames.
+extract it locally before running:
+
+```bash
+python3 tools/plot_gpu_results.py \
+  results/gpu_vs_hybrid_cluster_gpu_synthetic_100k_1m_directed.csv \
+  results/gpu_offload_cluster_gpu_synthetic_100k_1m_directed.csv \
+  --out-dir results/figures/cluster_gpu --platform-label "DD2356 Small GPU Server"
+```
 
 ## Cluster Submission
 ```bash

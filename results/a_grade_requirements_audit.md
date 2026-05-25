@@ -50,6 +50,31 @@ Validation checks:
 - The weak trend is internally consistent: constant edges per rank with
   increasing collective-communication fraction and decreasing efficiency.
 
+## Validated GPU Offloading Data
+
+The DD2356 Small GPU server run is valid formal evidence for Wang's GPU
+offloading scope. The recorded allocation is an NVIDIA H100 `MIG 1g.10gb`
+device. The probe and timed GPU runs were executed with device execution
+required, and therefore cannot silently pass through CPU fallback.
+
+| Implementation | Configuration | Dataset | PR time avg (s) | Speedup vs. serial | Device confirmed | Status |
+|---|---|---|---:|---:|---|---|
+| Serial | 1 CPU thread | synthetic_100k_1m | 0.036452 | 1.000000 | N/A | REFERENCE |
+| OpenMP target GPU | naive mapping | synthetic_100k_1m | 0.059829 | 0.609268 | YES | PASS |
+| OpenMP target GPU | persistent mapping | synthetic_100k_1m | 0.033684 | 1.082188 | YES | PASS |
+| Hybrid MPI+OpenMP | `4x2`, 8 CPU workers | synthetic_100k_1m | 0.010364 | 3.517107 | N/A | PASS |
+
+Validation checks:
+
+- `results/gpu_correctness_cluster_gpu.csv` records `PASS` and
+  `executed_on_device=YES` for all nine course datasets.
+- All ten timed GPU runs (five naive and five persistent) are `PASS` with
+  `executed_on_device=YES`.
+- The persistent target-data region improves GPU PR time by `1.776212x` over
+  the naive mapping version.
+- The Hybrid `4x2` baseline was measured on the same server and graph; it is
+  `3.249995x` faster than persistent GPU offloading for the tested PR kernel.
+
 ## Evidence Matrix
 
 | A-level requirement | Current evidence | Status | Missing evidence or action |
@@ -65,7 +90,7 @@ Validation checks:
 | Hybrid MPI+OpenMP implementation and correctness | `mpi/pagerank_hybrid.c`, fixed-core CSVs, PASS verification | Complete in implementation | None for correctness. |
 | Hybrid overhead analysis and best `(P,N)` on school cluster for a few total-core values | Fixed-total-16 sweeps exist for two datasets; report analyzes MPI communication | Partial | Run at least two additional total-worker budgets, e.g. 4 and 8 (or 8 and 32 if allocated), and explicitly model thread overhead plus MPI overhead. |
 | Two profiling-guided optimizations | Reciprocal out-degree and dynamic scheduling; cluster ablation CSVs show before/after PR time | Partial to strong | Add selected before/after communication and parallel-efficiency evidence to the final integrated report. |
-| OpenMP GPU offloading correctness and comparison with MPI+OpenMP | Prototype and correctness matrix exist; current GPU timing is local while Hybrid timing is from KTH | Partial | Confirm actual device execution and run GPU versus Hybrid comparison on a comparable platform/dataset. |
+| OpenMP GPU offloading correctness and comparison with MPI+OpenMP | Confirmed-device H100 MIG run; nine-dataset GPU correctness CSV; naive/persistent optimization; same-server Hybrid `4x2` comparison on the synthetic graph | Complete for Pengyu Wang's GPU scope | None identified for this requirement. |
 | Strong-scaling and weak-scaling report sections | Wang section includes KTH and formal multi-node Dardel MPI tables, placement evidence, and analysis | Complete for Wang's MPI scaling scope | None identified for MPI scaling. |
 
 ## Required Remaining Experiments for A-Level Evidence
@@ -80,9 +105,6 @@ High priority:
 Before submission:
 
 3. Add before/after parallel-efficiency metrics for the two optimizations.
-4. Replace the current cross-platform GPU/Hybrid timing comparison with
-   same-platform evidence and confirm that the target region actually runs on a
-   GPU device rather than CPU fallback (Pengyu Wang's remaining scope).
 
 ## Current Reporting Caution
 
@@ -90,3 +112,5 @@ The formal Dardel MPI tables now refer to the two-node `main` job `20957663`
 and satisfy the proposal's multi-node measurement wording for the measured
 `1, 2, 4, 8, 16` rank sequence. Earlier single-node shared-allocation CSVs
 remain useful diagnostics, but must remain clearly labeled as such.
+The GPU evidence now refers to the confirmed NVIDIA H100 MIG target run on the
+DD2356 Small GPU server; older local fallback timings remain diagnostic only.

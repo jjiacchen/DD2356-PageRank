@@ -7,6 +7,7 @@ Platforms:
 - `colab`
 - `kth`
 - `dardel`
+- `cluster_gpu` (DD2356 Small GPU server / NVIDIA H100 `MIG 1g.10gb`)
 
 Variants:
 - `serial`
@@ -43,7 +44,7 @@ Main dataset:
 | hybrid | colab | ranks=? x threads=? |  |  |  |  |  |
 | hybrid | kth | ranks=16 x threads=1 |  | 0.002907 | 108 | 0.8253 | 0.0516 |
 | hybrid | dardel | ranks=? x threads=? |  |  |  |  |  |
-| gpu | local | omp-target | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
+| gpu | local | omp-target fallback (diagnostic) | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
 | gpu | colab | omp-target |  |  |  |  |  |
 | gpu | kth | omp-target |  |  |  |  |  |
 | gpu | dardel | omp-target |  |  |  |  |  |
@@ -60,7 +61,7 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | polblogs.csv | directed | local | openmp | threads=8 | 1224 | 19090 | 0.003797 | 108 | 1.0000000000 | PASS |
 | polblogs.csv | directed | local | mpi | ranks=4 | 1224 | 19090 | 0.004730 | 108 | 1.0000000000 | PASS |
 | polblogs.csv | directed | local | hybrid | ranks=2 x threads=4 | 1224 | 19090 |  |  |  | PASS/FAIL |
-| polblogs.csv | directed | local | gpu | omp-target | 1224 | 19090 | 0.053566 | 108 | 1.0000000000 | PASS |
+| polblogs.csv | directed | local | gpu | omp-target fallback (diagnostic) | 1224 | 19090 | 0.053566 | 108 | 1.0000000000 | PASS |
 | karateDir.csv | directed | local | openmp/gpu | see verify matrix | 34 | 78 | TBD | 22 | 1.0000000000 | PASS |
 | lesmisDir.csv | directed | local | openmp/gpu | see verify matrix | 77 | 254 | TBD | 36 | 1.0000000000 | PASS |
 | dolphinsDir.csv | directed | local | openmp/gpu | see verify matrix | 62 | 159 | TBD | 29 | 1.0000000000 | PASS |
@@ -140,6 +141,23 @@ created with `--cpus-per-task=1`, so Slurm emitted warnings when the hybrid job
 steps requested more than one CPU per MPI rank. The school-cluster hybrid
 measurements remain the main fixed-core evidence for final conclusions.
 
+### 3.5 Confirmed-Device GPU Comparison (same Small GPU server)
+
+The GPU comparison uses `synthetic_100k_1m.csv (directed)` for all rows. GPU
+target execution was required and confirmed; the Hybrid control uses the eight
+CPU workers available alongside the Small GPU allocation.
+
+| Implementation | Configuration | PR time avg (s) | Total time avg (s) | Speedup vs. serial | Device confirmed | Status |
+|---|---|---:|---:|---:|---|---|
+| serial | 1 CPU thread | 0.036452 | 0.036452 | 1.000000 | N/A | REFERENCE |
+| gpu | naive mapping | 0.059829 | 0.257351 | 0.609268 | YES | PASS |
+| gpu | persistent mapping | 0.033684 | 0.230779 | 1.082188 | YES | PASS |
+| hybrid | (4,2), 8 CPU workers | 0.010364 | 0.218843 | 3.517107 | N/A | PASS |
+
+Persistent GPU data mapping is `1.776212x` faster than the naive offload path,
+while the same-server Hybrid control is `3.249995x` faster than persistent GPU
+PageRank at this graph size.
+
 ---
 
 ## 4) Data Source Mapping
@@ -151,3 +169,6 @@ measurements remain the main fixed-core evidence for final conclusions.
 - MPI local, KTH, and Dardel runs: `results/mpi_scaling_polblogs_directed.csv`, `results/mpi_scaling_cluster_polblogs_directed.csv`, `results/mpi_scaling_dardel_multinode_course_polblogs_directed.csv`, `results/mpi_weak_scaling_cluster_directed.csv`, `results/mpi_weak_scaling_dardel_multinode_directed.csv`
 - Hybrid fixed-core runs: `mpi/profile_hybrid.sh` -> `results/hybrid_fixedcore_<platform>_<dataset>_<mode>.csv`
 - School-cluster MPI/Hybrid runs: `run_mpi_cluster.sh` -> result CSV files to be generated on an MPI-enabled cluster
+- Confirmed-device GPU correctness: `results/gpu_correctness_cluster_gpu.csv`
+- Same-server GPU/Hybrid comparison: `results/gpu_offload_cluster_gpu_synthetic_100k_1m_directed.csv`, `results/hybrid_fixedcore_cluster_gpu_synthetic_100k_1m_directed.csv`, and `results/gpu_vs_hybrid_cluster_gpu_synthetic_100k_1m_directed.csv`
+- GPU target evidence: `results/cluster_gpu_environment.log` and `results/cluster_gpu_device_probe.log`

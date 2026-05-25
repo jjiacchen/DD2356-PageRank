@@ -83,14 +83,17 @@ ranks with less intra-rank threading.
 \subsection{OpenMP GPU Offloading}
 \label{subsec:wang-gpu}
 
-The GPU comparison path is implemented with OpenMP target offloading. The
-dangling-node reduction and sparse PageRank update are expressed with
-\texttt{target teams distribute parallel for}; the convergence norm remains on
-the CPU in the current prototype. The implementation maps the PageRank vector,
-CSR arrays, and precomputed inverse out-degree array to the device for each
-offloaded kernel. This is intentionally a correctness-first prototype, useful
-for comparing the cost of offloading against the best CPU paths before adding
-more aggressive persistent device-data regions.
+The GPU comparison path is implemented with OpenMP target offloading and has
+two variants. The \texttt{naive} baseline remaps graph and PageRank data for
+target kernels, while the \texttt{persistent} version establishes an outer
+device-data region, retains the CSR arrays and ping-pong PageRank buffers on
+the device across all iterations, and performs dangling-mass and convergence
+reductions on the target. Formal runs set \path{PR_REQUIRE_DEVICE=1}, so
+CPU fallback causes a failed run rather than an accepted measurement. Since
+the course allocation did not provide a Dardel GPU job, the confirmed-device
+measurement used the DD2356 Small GPU server: an NVIDIA H100
+\texttt{MIG 1g.10gb} allocation. A Hybrid \texttt{4x2} control was run on
+the CPU resources of that same server.
 
 \section{Correctness Evaluation}
 \label{sec:wang-correctness}
@@ -105,7 +108,10 @@ weak-scaling sequence up to the 200k-node/2M-edge graph, passed for all
 measured rank counts. The hybrid fixed-core runs passed for every tested
 $(P,N)$ combination on both datasets. The maximum errors are at machine
 precision scale, e.g. at most $1.04\times 10^{-17}$ in the Dardel
-\texttt{polblogs.csv} MPI run.
+\texttt{polblogs.csv} MPI run. The formal GPU run additionally passed all nine
+course datasets with \texttt{executed\_on\_device=YES}; both timed GPU
+variants passed on the synthetic comparison graph with maximum error
+$1.02\times 10^{-20}$.
 
 \begin{table}[H]
 \centering
@@ -121,7 +127,7 @@ MPI & Dardel scaling datasets & 1--16 ranks, two \texttt{main} nodes & PASS, tol
 MPI & 2 cluster datasets & 1, 2, 4, 8, 16 ranks on school cluster & PASS, tol. $10^{-6}$ \\
 MPI & cluster weak-scaling sequence & 1 to 16 ranks; up to 200k nodes / 2M edges & PASS, tol. $10^{-6}$ \\
 Hybrid MPI+OpenMP & 2 cluster datasets & fixed 16 cores: \texttt{1x16} to \texttt{16x1} & PASS, tol. $10^{-6}$ \\
-OpenMP target GPU & 9 course datasets & local target-offload prototype & PASS vs. serial \\
+OpenMP target GPU & 9 course datasets & H100 MIG persistent target path; device verified & PASS vs. serial \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -440,29 +446,45 @@ collective overhead hide some local kernel gains: precomputing
 ($1.2237\times$), while the full \texttt{4x4} optimization is slightly slower
 than the unoptimized baseline ($0.9557\times$).
 
-The GPU offloading prototype was correct on all course datasets, but it was not
-faster on the measured local \texttt{polblogs.csv} case. The local serial PR
-time was $0.001943$ s, while the OpenMP target version took $0.053566$ s. The
-best school-cluster hybrid result for \texttt{polblogs.csv} was also much
-lower at $0.0029068$ s. This is not an apples-to-apples hardware comparison,
-but it shows that the current graph is too small for GPU offloading to amortize
-target launch and data mapping overheads, especially because the prototype maps
-arrays for each target region instead of keeping device data resident across the
-full iteration loop.
+OpenMP target execution was formally confirmed on the DD2356 Small GPU server:
+the run detected one NVIDIA H100 \texttt{MIG 1g.10gb} target device, and
+\texttt{omp\_is\_initial\_device()} confirmed that target regions executed on
+device. On the directed \texttt{synthetic\_100k\_1m.csv} graph, retaining
+arrays across PageRank iterations reduces average PR time from $0.059829$ s
+for the naive path to $0.033684$ s for the persistent path, an improvement of
+$1.7762\times$. Persistent offload is also slightly faster than the serial
+reference for this kernel metric ($1.0822\times$). However, the same-server
+Hybrid \texttt{4x2} control completes PR computation in $0.010364$ s, making
+it $3.2500\times$ faster than persistent GPU offloading on this one-million-edge
+input. Thus the data show a successful GPU optimization and a fair comparison,
+but not a GPU win over the CPU hybrid implementation at the tested scale.
 
 \begin{table}[H]
 \centering
-\caption{Local GPU comparison on \texttt{polblogs.csv} (directed).}
+\caption{Confirmed-device GPU comparison on the DD2356 Small GPU server for
+\texttt{synthetic\_100k\_1m.csv} (directed), five-run averages.}
 \label{tab:wang-gpu-comparison}
 \begin{tabular}{llll}
 \toprule
 Variant & Configuration & PR time (s) & Correctness \\
 \midrule
-Serial & 1 thread & 0.001943 & reference \\
-OpenMP target GPU & target offload prototype & 0.053566 & PASS \\
+Serial & 1 CPU thread & 0.036452 & reference \\
+OpenMP target GPU & naive mapping & 0.059829 & PASS, device verified \\
+OpenMP target GPU & persistent mapping & \textbf{0.033684} & PASS, device verified \\
+Hybrid MPI+OpenMP & \texttt{4x2}, 8 CPU workers & \textbf{0.010364} & PASS \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth]{results/figures/cluster_gpu/gpu_pr_time_comparison.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{results/figures/cluster_gpu/gpu_mapping_breakdown.png}
+\caption{Same-server GPU and Hybrid timing comparison (left), and OpenMP
+target mapping optimization breakdown (right).}
+\label{fig:wang-gpu-comparison}
+\end{figure}
 
 For hybrid MPI+OpenMP, the fixed-core experiments keep the total number of CPU
 workers at 16 and vary the split between MPI ranks and OpenMP threads. The
@@ -516,8 +538,9 @@ communication lower than the \texttt{8x2} and \texttt{16x1} configurations.
 The Dardel \texttt{main}-partition job now closes the previously missing
 multi-node MPI requirement: every multi-rank strong/weak row is placed across
 \texttt{nid001120} and \texttt{nid001121}, and the 16-rank weak row uses the
-required 200k-node/2M-edge graph. The remaining entries below either belong to
-Minyi Zhu's OpenMP/hybrid analysis scope or to Wang's GPU-offloading comparison.
+required 200k-node/2M-edge graph. Confirmed-device OpenMP target measurements
+on the DD2356 Small GPU server also close Wang's GPU-offloading comparison.
+The remaining entries below belong to Minyi Zhu's OpenMP/hybrid analysis scope.
 
 \begin{table}[H]
 \centering
@@ -541,8 +564,8 @@ OpenMP speedup on three systems &
 Correctness and local timing evidence &
 Minyi scope: provide scaling measurements on three systems \\
 GPU offload comparison with Hybrid &
-Correct local offload prototype and separate school-cluster Hybrid timing &
-Obtain a same-platform GPU-vs-Hybrid timing comparison with confirmed device execution \\
+Confirmed H100 MIG execution; nine-dataset PASS; same-server GPU naive/persistent and Hybrid \texttt{4x2} comparison &
+Complete for Wang's GPU scope \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -553,9 +576,10 @@ Obtain a same-platform GPU-vs-Hybrid timing comparison with confirmed device exe
 Pengyu Wang implemented the MPI decomposition and communication timing, ran and
 analyzed the Dardel multi-node and school-cluster MPI strong/weak-scaling
 experiments, added the 16-rank weak-scaling workflow with dynamically sized
-graph readers, integrated the MPI result pipeline, and verified the OpenMP GPU
-offloading prototype against the serial baseline. A confirmed-device,
-same-platform GPU comparison against the group hybrid baseline remains the
-next GPU-offloading measurement.
+graph readers, integrated the MPI result pipeline, and implemented and measured
+OpenMP GPU offloading. The final GPU evidence confirms execution on an NVIDIA
+H100 MIG device, demonstrates the persistent-device-data optimization against
+the naive target baseline, and compares it with the group Hybrid
+\texttt{4x2} baseline on the same server and graph.
 
 \end{document}

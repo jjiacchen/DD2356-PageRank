@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create GPU-offload comparison figures from the Dardel summary CSV files."""
+"""Create GPU-offload comparison figures from formal summary CSV files."""
 
 from __future__ import annotations
 
@@ -56,10 +56,10 @@ def axes(draw: ImageDraw.ImageDraw, maximum: float) -> tuple[int, int, int, int]
     return left, top, right, bottom
 
 
-def runtime_comparison(rows: list[dict[str, str]], out_path: Path) -> None:
+def runtime_comparison(rows: list[dict[str, str]], out_path: Path, platform_label: str) -> None:
     values = [float(row["pr_time_avg_s"]) for row in rows]
     maximum = max(values) * 1.18 if values else 1.0
-    image, draw = frame("Dardel GPU Node: PageRank Runtime Comparison")
+    image, draw = frame(f"{platform_label}: PageRank Runtime Comparison")
     left, top, right, bottom = axes(draw, maximum)
     width = 180
     gap = 78
@@ -109,13 +109,14 @@ def mapping_breakdown(rows: list[dict[str, str]], out_path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Plot Dardel GPU PageRank result CSVs.")
+    parser = argparse.ArgumentParser(description="Plot GPU PageRank result CSVs.")
     parser.add_argument("comparison", type=Path, help="gpu_vs_hybrid summary CSV")
     parser.add_argument("gpu_summary", type=Path, help="gpu_offload summary CSV")
     parser.add_argument("--out-dir", type=Path, default=Path("results/figures/dardel_gpu"))
+    parser.add_argument("--platform-label", default="GPU Server", help="title label for the runtime plot")
     args = parser.parse_args()
 
-    runtime_comparison(load(args.comparison), args.out_dir / "gpu_pr_time_comparison.png")
+    runtime_comparison(load(args.comparison), args.out_dir / "gpu_pr_time_comparison.png", args.platform_label)
     mapping_breakdown(load(args.gpu_summary), args.out_dir / "gpu_mapping_breakdown.png")
     print(f"wrote figures to {args.out_dir}")
 

@@ -1,0 +1,10 @@
+dataset,mode,variant,nodes,edges,iterations,device_count,target_device_id,executed_on_device,max_error,status
+polblogs.csv,directed,persistent,1224,19090,108,1,0,YES,2.602085e-18,PASS
+karateDir.csv,directed,persistent,34,78,22,1,0,YES,1.387779e-17,PASS
+lesmisDir.csv,directed,persistent,77,254,36,1,0,YES,1.387779e-17,PASS
+dolphinsDir.csv,directed,persistent,62,159,29,1,0,YES,2.775558e-17,PASS
+NCAA_football.csv,directed,persistent,570,1537,24,1,0,YES,2.602085e-18,PASS
+dolphins.csv,undirected,persistent,62,636,86,1,0,YES,1.734723e-17,PASS
+karate.csv,undirected,persistent,34,312,60,1,0,YES,1.387779e-17,PASS
+lesmis.csv,undirected,persistent,77,1016,76,1,0,YES,1.387779e-17,PASS
+stateborders.csv,undirected,persistent,51,428,90,1,0,YES,1.040834e-17,PASS

@@ -31,8 +31,12 @@ This file maps directly to proposal milestones and the implemented scripts.
 
 - Optimization 1 (implemented): cached reciprocal out-degree (`inv_out_degree`) to remove repeated divisions in kernels.
 - Optimization 2 (implemented): OpenMP loop scheduling tuned (`dynamic,256` on sparse incoming loop) for better load balance.
-- GPU prototype run: `openmp/pagerank_openmp_gpu data/polblogs.csv directed`
-- Compare with CPU outputs via `verify/verify`.
+- GPU formal path: `openmp/pagerank_openmp_gpu` supports `naive` and
+  `persistent` device-data variants and rejects host fallback when
+  `PR_REQUIRE_DEVICE=1` is set.
+- Confirmed-device evidence is recorded from the DD2356 Small GPU server in
+  `results/gpu_correctness_cluster_gpu.csv` and
+  `results/gpu_vs_hybrid_cluster_gpu_synthetic_100k_1m_directed.csv`.
 
 ## W6 Consolidation
 
