@@ -258,7 +258,7 @@ fieldnames = [
 ]
 
 with open(summary_csv, "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()
     for key in sorted(groups, key=lambda k: k[3]):
         dataset, mode, scaling_mode, ranks = key

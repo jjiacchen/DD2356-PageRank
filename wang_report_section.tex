@@ -17,7 +17,7 @@
     BoldItalicFont=*-bolditalic
 ]
 
-\title{DD2356 VT26 Project Report\\Pengyu Wang's Part: MPI, Hybrid MPI+OpenMP, and GPU Offloading}
+\title{DD2356 VT26 Project Report\\Pengyu Wang's Part: MPI Scaling and GPU Offloading}
 \author{Group 26}
 \date{}
 
@@ -72,7 +72,8 @@ irregular in-degree distributions; assigning a fixed number of destination
 vertices to each thread can leave some threads with many more incoming edges
 than others.
 
-The profiling script supports fixed-core experiments with configurations
+For comparison with the GPU-offloading path, the group hybrid implementation
+supports fixed-core experiments with configurations
 \texttt{1x16}, \texttt{2x8}, \texttt{4x4}, \texttt{8x2}, and \texttt{16x1},
 where the first number is the MPI rank count $P$ and the second number is the
 OpenMP thread count $N$ per rank. These runs are intended to identify whether
@@ -97,8 +98,8 @@ more aggressive persistent device-data regions.
 All parallel outputs were compared against the serial PageRank reference using
 the repository verifier and a tolerance of $10^{-6}$. The MPI implementation
 passed the full nine-dataset correctness suite on Dardel for $P=1,2,4$ ranks,
-and the Dardel scaling experiments passed for all measured $P=1,2,4,8,16$
-cases. On the school cluster, the MPI strong-scaling runs for both
+and the formal Dardel scaling experiments passed for all measured
+$P=1,2,4,8,16$ cases in a two-node \texttt{main}-partition job. On the school cluster, the MPI strong-scaling runs for both
 \texttt{polblogs.csv} and \texttt{synthetic\_100k\_1m.csv}, as well as the
 weak-scaling sequence up to the 200k-node/2M-edge graph, passed for all
 measured rank counts. The hybrid fixed-core runs passed for every tested
@@ -116,7 +117,7 @@ precision scale, e.g. at most $1.04\times 10^{-17}$ in the Dardel
 Implementation & Dataset scope & Configuration & Result \\
 \midrule
 MPI & 9 course datasets & 1, 2, 4 ranks on Dardel & PASS, tol. $10^{-6}$ \\
-MPI & Dardel scaling datasets & 1, 2, 4, 8, 16 ranks & PASS, tol. $10^{-6}$ \\
+MPI & Dardel scaling datasets & 1--16 ranks, two \texttt{main} nodes & PASS, tol. $10^{-6}$ \\
 MPI & 2 cluster datasets & 1, 2, 4, 8, 16 ranks on school cluster & PASS, tol. $10^{-6}$ \\
 MPI & cluster weak-scaling sequence & 1 to 16 ranks; up to 200k nodes / 2M edges & PASS, tol. $10^{-6}$ \\
 Hybrid MPI+OpenMP & 2 cluster datasets & fixed 16 cores: \texttt{1x16} to \texttt{16x1} & PASS, tol. $10^{-6}$ \\
@@ -131,24 +132,28 @@ OpenMP target GPU & 9 course datasets & local target-offload prototype & PASS vs
 \subsection{Dardel MPI Strong Scaling}
 \label{subsec:wang-dardel-strong}
 
-Table~\ref{tab:wang-polblogs-strong} reports the Dardel strong-scaling result
-for the course \texttt{polblogs.csv} graph. The graph is small
+The formal Dardel run was submitted as Slurm job \texttt{20957663} on the
+\texttt{main} partition using compute nodes \texttt{nid001120} and
+\texttt{nid001121}. A placement probe outside each measured interval records
+that every $P=2,4,8,16$ case is balanced across both nodes; the $P=1$ row is
+the one-node reference. Table~\ref{tab:wang-polblogs-strong} reports the
+strong-scaling result for the course \texttt{polblogs.csv} graph. The graph is small
 ($1224$ vertices and $19090$ edges), so the communication overhead is much
 larger than the useful local sparse update once more than one rank is used.
 
 \begin{table}[H]
 \centering
-\caption{MPI strong scaling on Dardel for \texttt{polblogs.csv} (directed).}
+\caption{Two-node MPI strong scaling on Dardel for \texttt{polblogs.csv} (directed).}
 \label{tab:wang-polblogs-strong}
 \begin{tabular}{rrrrrrr}
 \toprule
 Ranks & Runs & PR time (s) & Comm frac. & Speedup & Efficiency & Imbalance \\
 \midrule
-1  & 5 & 0.002560 & 0.0430 & 1.000000 & 1.000000 & 1.000 \\
-2  & 5 & 7.836485 & 0.9997 & 0.000327 & 0.000163 & 1.887 \\
-4  & 5 & 8.291886 & 0.9998 & 0.000309 & 0.000077 & 3.129 \\
-8  & 5 & 11.579997 & 0.9999 & 0.000221 & 0.000028 & 4.412 \\
-16 & 5 & 14.117646 & 1.0000 & 0.000181 & 0.000011 & 4.536 \\
+1  & 5 & 0.002364 & 0.0463 & 1.000000 & 1.000000 & 1.000 \\
+2  & 5 & 0.003274 & 0.9144 & 0.722008 & 0.361004 & 1.887 \\
+4  & 5 & 0.003406 & 0.9637 & 0.694110 & 0.173528 & 3.129 \\
+8  & 5 & 0.003346 & 0.9805 & 0.706557 & 0.088320 & 4.412 \\
+16 & 5 & 0.003732 & 0.9896 & 0.633474 & 0.039592 & 4.536 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -156,54 +161,54 @@ Ranks & Runs & PR time (s) & Comm frac. & Speedup & Efficiency & Imbalance \\
 To separate graph-size effects from implementation effects, the same experiment
 was repeated on a larger synthetic graph with $100000$ vertices and
 $1000000$ edges. The larger graph has much better block balance
-(max/average in-edge imbalance around $1.05$), but Table~\ref{tab:wang-synth-strong}
-still shows negative scaling after one rank. This confirms that the bottleneck
-is dominated by collective communication rather than by local load imbalance.
+(max/average in-edge imbalance around $1.05$). Table~\ref{tab:wang-synth-strong}
+shows useful scaling through $P=8$, where speedup reaches $2.98\times$, but
+the speedup declines at $P=16$ as collective communication grows.
 
 \begin{table}[H]
 \centering
-\caption{MPI strong scaling on Dardel for \texttt{synthetic\_100k\_1m.csv} (directed).}
+\caption{Two-node MPI strong scaling on Dardel for \texttt{synthetic\_100k\_1m.csv} (directed).}
 \label{tab:wang-synth-strong}
 \begin{tabular}{rrrrrrr}
 \toprule
 Ranks & Runs & PR time (s) & Comm frac. & Speedup & Efficiency & Imbalance \\
 \midrule
-1  & 5 & 0.036353 & 0.0127 & 1.000000 & 1.000000 & 1.000 \\
-2  & 5 & 8.682688 & 0.9961 & 0.004187 & 0.002093 & 1.035 \\
-4  & 5 & 7.217915 & 0.9976 & 0.005037 & 0.001259 & 1.044 \\
-8  & 5 & 10.115917 & 0.9989 & 0.003594 & 0.000449 & 1.047 \\
-16 & 5 & 16.303321 & 0.9996 & 0.002230 & 0.000139 & 1.051 \\
+1  & 5 & 0.036330 & 0.0395 & 1.000000 & 1.000000 & 1.000 \\
+2  & 5 & 0.020386 & 0.1462 & 1.782080 & 0.891040 & 1.035 \\
+4  & 5 & 0.012707 & 0.3017 & 2.859025 & 0.714756 & 1.044 \\
+8  & 5 & 0.012205 & 0.5257 & 2.976714 & 0.372089 & 1.047 \\
+16 & 5 & 0.014107 & 0.7600 & 2.575258 & 0.160954 & 1.051 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The communication fraction rises to approximately $0.996$--$0.999$ for
-$P>1$ on the synthetic graph. In the timing breakdown, most of this time is
-spent in the full-vector \texttt{MPI\_Allgatherv} and the synchronization waits
-inside the scalar reductions. Therefore, this implementation is correct and
-useful as a distributed-memory baseline, but it does not provide scalable
-performance without reducing the amount of vector communication per iteration.
+For the synthetic graph, communication fraction increases from $0.1462$ at
+$P=2$ to $0.7600$ at $P=16$. The work imbalance remains only $1.051$ at
+$P=16$, whereas \texttt{MPI\_Allgatherv} alone grows to an average of
+$0.008713$ s. Thus the two-node result demonstrates useful parallelism for a
+larger graph, but also shows that replicated-vector collectives limit
+high-rank efficiency.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.48\textwidth]{results/figures/mpi_speedup.png}
-\includegraphics[width=0.48\textwidth]{results/figures/mpi_efficiency.png}
-\caption{MPI speedup and parallel efficiency from the generated result figures.}
+\includegraphics[width=0.48\textwidth]{results/figures/dardel_multinode_strong/mpi_speedup.png}
+\includegraphics[width=0.48\textwidth]{results/figures/dardel_multinode_strong/mpi_efficiency.png}
+\caption{Dardel two-node MPI speedup and parallel efficiency for the synthetic graph.}
 \label{fig:wang-mpi-speedup-efficiency}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.48\textwidth]{results/figures/mpi_runtime_breakdown.png}
-\includegraphics[width=0.48\textwidth]{results/figures/mpi_comm_fraction.png}
-\caption{MPI runtime breakdown and communication fraction.}
+\includegraphics[width=0.48\textwidth]{results/figures/dardel_multinode_strong/mpi_runtime_breakdown.png}
+\includegraphics[width=0.48\textwidth]{results/figures/dardel_multinode_strong/mpi_comm_fraction.png}
+\caption{Dardel two-node MPI runtime breakdown and communication fraction.}
 \label{fig:wang-mpi-runtime-comm}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.55\textwidth]{results/figures/mpi_workload_balance.png}
-\caption{MPI workload imbalance measured as max in-edges divided by average in-edges.}
+\includegraphics[width=0.55\textwidth]{results/figures/dardel_multinode_strong/mpi_workload_balance.png}
+\caption{Dardel two-node MPI workload imbalance measured as max in-edges divided by average in-edges.}
 \label{fig:wang-mpi-workload}
 \end{figure}
 
@@ -216,21 +221,23 @@ edges per rank, so the required 16-rank experiment uses a
 $200000$-vertex, $2000000$-edge synthetic graph. This is a different
 experiment from strong scaling: strong scaling fixes the graph size, while weak
 scaling grows the global graph so each rank receives similar local work.
+The same two-node placement policy as in strong scaling is used for all
+multi-rank rows.
 
 \begin{table}[H]
 \centering
-\caption{MPI weak scaling on Dardel with 125k edges per rank.}
+\caption{Two-node MPI weak scaling on Dardel with 125k edges per rank.}
 \label{tab:wang-dardel-weak}
 \scriptsize
 \begin{tabular}{lrrrrrrr}
 \toprule
 Dataset & Ranks & Nodes & Edges & PR time (s) & Comm frac. & Weak eff. & Status \\
 \midrule
-\texttt{weak\_1rank\_12500\_125000}    & 1  & 12500  & 125000  & 0.003857  & 0.0338 & 1.000000000 & PASS \\
-\texttt{weak\_2rank\_25000\_250000}    & 2  & 25000  & 250000  & 2.004018  & 0.9978 & 0.001924534 & PASS \\
-\texttt{weak\_4rank\_50000\_500000}    & 4  & 50000  & 500000  & 2.101621  & 0.9975 & 0.001835155 & PASS \\
-\texttt{weak\_8rank\_100000\_1000000}  & 8  & 100000 & 1000000 & 9.919046  & 0.9987 & 0.000388828 & PASS \\
-\texttt{weak\_16rank\_200000\_2000000} & 16 & 200000 & 2000000 & 23.825432 & 0.9992 & 0.000161877 & PASS \\
+\texttt{weak\_1rank\_12500\_125000}    & 1  & 12500  & 125000  & 0.003778 & 0.0353 & 1.000000000 & PASS \\
+\texttt{weak\_2rank\_25000\_250000}    & 2  & 25000  & 250000  & 0.005837 & 0.3138 & 0.647216036 & PASS \\
+\texttt{weak\_4rank\_50000\_500000}    & 4  & 50000  & 500000  & 0.006134 & 0.3398 & 0.615898790 & PASS \\
+\texttt{weak\_8rank\_100000\_1000000}  & 8  & 100000 & 1000000 & 0.011932 & 0.5365 & 0.316600181 & PASS \\
+\texttt{weak\_16rank\_200000\_2000000} & 16 & 200000 & 2000000 & 0.044137 & 0.5960 & 0.085592587 & PASS \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -239,15 +246,15 @@ The 16-rank row satisfies the required weak-scaling case and confirms that the
 dynamic graph reader can process the larger 200k-node input. However, weak
 efficiency drops sharply because the replicated-vector algorithm still
 communicates the full global PageRank vector every iteration. In the 16-rank
-weak-scaling run, \texttt{MPI\_Allgatherv} alone averages $21.812665$ s out of
-$23.825432$ s PageRank time, so increasing local work per rank is not enough to
+weak-scaling run, \texttt{MPI\_Allgatherv} alone averages $0.020449$ s out of
+$0.044137$ s PageRank time, so increasing local work per rank is not enough to
 hide the global communication cost.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.48\textwidth]{results/figures/dardel_weak/mpi_weak_efficiency.png}
-\includegraphics[width=0.48\textwidth]{results/figures/dardel_weak/mpi_comm_fraction.png}
-\caption{Dardel weak-scaling efficiency and communication fraction.}
+\includegraphics[width=0.48\textwidth]{results/figures/dardel_multinode_weak/mpi_weak_efficiency.png}
+\includegraphics[width=0.48\textwidth]{results/figures/dardel_multinode_weak/mpi_comm_fraction.png}
+\caption{Dardel two-node weak-scaling efficiency and communication fraction.}
 \label{fig:wang-dardel-weak}
 \end{figure}
 
@@ -506,12 +513,11 @@ communication lower than the \texttt{8x2} and \texttt{16x1} configurations.
 \section{A-Level Coverage and Remaining Measurements}
 \label{sec:wang-coverage}
 
-The new weak-scaling measurements close the previously missing 16-rank cases
-on both Dardel and the school cluster. However, the current evidence must not
-be interpreted as satisfying every A-level measurement requirement. In
-particular, the Dardel MPI measurements in this section were collected in a
-single-node allocation, whereas the requested criterion specifies multi-node
-Dardel strong and weak scaling.
+The Dardel \texttt{main}-partition job now closes the previously missing
+multi-node MPI requirement: every multi-rank strong/weak row is placed across
+\texttt{nid001120} and \texttt{nid001121}, and the 16-rank weak row uses the
+required 200k-node/2M-edge graph. The remaining entries below either belong to
+Minyi Zhu's OpenMP/hybrid analysis scope or to Wang's GPU-offloading comparison.
 
 \begin{table}[H]
 \centering
@@ -526,14 +532,14 @@ School-cluster MPI strong/weak scaling &
 Strong and weak CSVs; weak includes verified 16-rank 200k/2M case &
 Complete for measured rank sequence \\
 Dardel MPI strong/weak scaling on multiple nodes &
-Verified strong and weak CSVs for 1--16 ranks on one shared node &
-Repeat scaling with ranks placed across at least two Dardel nodes \\
+Verified strong and weak CSVs for 1--16 ranks on two \texttt{main} nodes; hostname record &
+Complete for measured rank sequence \\
 Hybrid fixed-core search on school cluster &
 Verified \texttt{1x16} through \texttt{16x1} sweeps &
-Repeat for additional total core budgets, not only $P\times N=16$ \\
+Minyi scope: repeat for additional total core budgets \\
 OpenMP speedup on three systems &
 Correctness and local timing evidence &
-Provide scaling measurements on Colab, KTH, and Dardel \\
+Minyi scope: provide scaling measurements on three systems \\
 GPU offload comparison with Hybrid &
 Correct local offload prototype and separate school-cluster Hybrid timing &
 Obtain a same-platform GPU-vs-Hybrid timing comparison with confirmed device execution \\
@@ -545,10 +551,11 @@ Obtain a same-platform GPU-vs-Hybrid timing comparison with confirmed device exe
 \label{sec:wang-contribution}
 
 Pengyu Wang implemented the MPI decomposition and communication timing, ran and
-analyzed the Dardel and school-cluster MPI strong-scaling experiments, added
-the 16-rank weak-scaling workflow with dynamically sized graph readers, built
-and evaluated the hybrid MPI+OpenMP fixed-core profiling workflow, integrated
-the cluster result pipeline, and verified/compared the OpenMP GPU offloading
-prototype against the serial baseline.
+analyzed the Dardel multi-node and school-cluster MPI strong/weak-scaling
+experiments, added the 16-rank weak-scaling workflow with dynamically sized
+graph readers, integrated the MPI result pipeline, and verified the OpenMP GPU
+offloading prototype against the serial baseline. A confirmed-device,
+same-platform GPU comparison against the group hybrid baseline remains the
+next GPU-offloading measurement.
 
 \end{document}

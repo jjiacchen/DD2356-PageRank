@@ -64,6 +64,8 @@ def label_for(row: dict[str, str]) -> str:
     dataset = row.get("dataset", "dataset")
     mode = row.get("mode", "")
     scaling = row.get("scaling_mode", "")
+    if scaling == "weak":
+        return f"scaled input {mode} weak".strip()
     return f"{dataset} {mode} {scaling}".strip()
 
 

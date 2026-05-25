@@ -30,9 +30,11 @@ This report implements the attached execution plan and records what is now in th
 - Added `mpi/pagerank_hybrid.c`.
 - Added cluster runner `scripts/run_mpi_cluster.sh`.
 - Build wiring added in `scripts/build_all.sh`.
-- MPI strong scaling has been measured on Dardel and the school cluster.
+- MPI strong scaling has been measured on the school cluster and across two
+  Dardel `main` compute nodes with explicit placement records.
 - Reproducible MPI weak scaling has been measured on both platforms through
-  the required 16-rank `200k nodes / 2M edges` case.
+  the required 16-rank `200k nodes / 2M edges` case; the formal Dardel run
+  spans `nid001120` and `nid001121` for every multi-rank row.
 - Hybrid fixed-core sweeps have been measured on the school cluster for
   `P*N=16`.
 
@@ -52,12 +54,11 @@ This report implements the attached execution plan and records what is now in th
 
 ## Remaining A-level runtime actions
 
-1. Run MPI strong/weak scaling across multiple Dardel compute nodes; current
-   Dardel results are single-node measurements.
-2. Measure OpenMP scaling against serial on Colab, KTH, and Dardel.
-3. Repeat the school-cluster Hybrid fixed-core search for additional total
-   worker budgets beyond `P*N=16`.
-4. Obtain a confirmed-device GPU timing comparison against Hybrid on a
+1. Measure OpenMP scaling against serial on Colab, KTH, and Dardel
+   (Minyi Zhu's OpenMP-analysis scope).
+2. Repeat the school-cluster Hybrid fixed-core search for additional total
+   worker budgets beyond `P*N=16` (Minyi Zhu's hybrid-analysis scope).
+3. Obtain a confirmed-device GPU timing comparison against Hybrid on a
    comparable platform and dataset.
 
 See `results/a_grade_requirements_audit.md` for the evidence matrix and scope
