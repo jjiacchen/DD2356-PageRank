@@ -3,13 +3,13 @@
 
 ## Structure
 - `serial/`  – Serial C baseline + profiling scripts 
-- `openmp/`  – OpenMP CPU implementation + OpenMP target offload prototype
+- `openmp/`  – OpenMP CPU implementation + OpenMP target GPU paths
 - `mpi/`     – MPI and Hybrid MPI+OpenMP implementations
 - `verify/`  – Correctness verification framework 
 - `data/`    – Course-provided graph datasets
 - `scripts/` – Build, reference generation, profiling, scaling and verification helpers
 - `references/` – Golden serial outputs for all datasets
-- `tools/`   – Local synthetic graph generation and MPI result plotting helpers
+- `tools/`   – Synthetic graph generation and MPI/GPU result plotting helpers
 
 ## Build & Run
 ```bash
@@ -87,6 +87,32 @@ python3 tools/plot_mpi_results.py results/mpi_scaling_synthetic_10k_100k_directe
 ```
 
 The plotting script requires Pillow. If the default Python does not have it, use the bundled Codex runtime Python shown by the app or run the plotting step on a machine with Pillow installed.
+
+## Dardel GPU Offloading Profile
+The GPU executable accepts a final `naive` or `persistent` variant argument.
+The persistent variant keeps the CSR graph and PageRank buffers resident in
+target memory across the iteration loop. Formal GPU runs set
+`PR_REQUIRE_DEVICE=1`, which rejects an OpenMP host fallback.
+
+```bash
+# Local correctness smoke; target execution may legitimately fall back to CPU.
+CC=gcc-15 GPU_CC=gcc-15 REPEAT=1 RUN_CORRECTNESS=1 \
+  ./openmp/profile_gpu.sh data/karateDir.csv directed
+
+# Dardel AMD GPU node: confirmed-device GPU results plus an 8x2 Hybrid control.
+sbatch scripts/run_dardel_gpu_comparison.sh
+
+# After downloading formal CSV files, create report figures locally.
+python3 tools/plot_gpu_results.py \
+  results/gpu_vs_hybrid_dardel_gpu_synthetic_100k_1m_directed.csv \
+  results/gpu_offload_dardel_gpu_synthetic_100k_1m_directed.csv \
+  --out-dir results/figures/dardel_gpu
+```
+
+The Dardel GPU runner follows PDC's AMD GPU environment:
+`PDC/24.11`, `rocm/6.3.3`, and `craype-accel-amd-gfx90a`. It also saves a
+`CRAY_ACC_DEBUG=3` probe log as evidence that target regions execute on a
+device.
 
 ## Cluster Submission
 ```bash
