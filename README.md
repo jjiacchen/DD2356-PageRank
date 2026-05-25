@@ -114,6 +114,24 @@ The Dardel GPU runner follows PDC's AMD GPU environment:
 `CRAY_ACC_DEBUG=3` probe log as evidence that target regions execute on a
 device.
 
+If the Dardel course allocation cannot access its GPU partition, use the
+DD2356 JupyterHub `Small GPU` server. It exposes a shared NVIDIA MIG GPU and
+up to eight CPU cores. The runner below first tests whether `nvc` or GCC
+NVPTX can execute an OpenMP target region on the GPU; it refuses to collect
+formal timings if the target falls back to the CPU. Since the server has only
+eight CPUs, its same-node Hybrid control is `4x2`.
+
+```bash
+git clone --branch codex/wang-dardel-experiments \
+  https://github.com/jjiacchen/DD2356-PageRank.git
+cd DD2356-PageRank
+REPEAT=5 ./scripts/run_cluster_gpu_comparison.sh
+```
+
+On success, download `wang_cluster_gpu_results.tar.gz` from JupyterLab and
+extract it locally before running `tools/plot_gpu_results.py` with the
+`cluster_gpu` CSV filenames.
+
 ## Cluster Submission
 ```bash
 # Generic SLURM

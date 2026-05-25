@@ -7,6 +7,8 @@
 # Formal Dardel example:
 #   PLATFORM=dardel_gpu REPEAT=5 PR_REQUIRE_DEVICE=1 \
 #     ./openmp/profile_gpu.sh data/synthetic/synthetic_100k_1m.csv directed
+# The DD2356 Jupyter Small GPU workflow selects its CUDA offload compiler via:
+#   ./scripts/run_cluster_gpu_comparison.sh
 
 set -euo pipefail
 
