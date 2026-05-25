@@ -37,7 +37,8 @@ Main dataset:
 | openmp | colab | threads=2 (best) | TBD | 0.003090 | 108 | 1.20 | 0.60 |
 | openmp | kth | threads=8 (best, synthetic_100k_1m) | TBD | 0.009724 | 19 | 3.57 | 0.45 |
 | openmp | kth | threads=32 (peak speedup, synthetic_100k_1m) | TBD | 0.007747 | 19 | 4.48 | 0.14 |
-| openmp | dardel | threads=? |  |  |  |  |  |
+| openmp | dardel | threads=2 (best efficiency, synthetic_100k_1m) | TBD | 0.018967 | 19 | 1.79 | 0.89 |
+| openmp | dardel | threads=16 (peak speedup, synthetic_100k_1m) | TBD | 0.007848 | 19 | 4.32 | 0.27 |
 | mpi | local | ranks=4 | 0.0010 | 0.004730 | 108 | 0.41 | 0.10 |
 | mpi | colab | ranks=? |  |  |  |  |  |
 | mpi | kth | ranks=16 |  | 0.002844 | 108 | 0.8435 | 0.0527 |
@@ -105,10 +106,20 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | kth | synthetic_100k_1m.csv | 16 | 0.012408 | 2.794 | 0.175 |
 | kth | synthetic_100k_1m.csv | 32 | 0.007747 | 4.476 | 0.140 |
 | kth | synthetic_100k_1m.csv | 64 | 0.018960 | 1.829 | 0.029 |
-| dardel | polblogs.csv | 1 |  | 1.00 | 1.00 |
-| dardel | polblogs.csv | 2 |  |  |  |
-| dardel | polblogs.csv | 4 |  |  |  |
-| dardel | polblogs.csv | 8 |  |  |  |
+| dardel | polblogs.csv | 1 | 0.002246 | 1.000 | 1.000 |
+| dardel | polblogs.csv | 2 | 0.001649 | 1.362 | 0.681 |
+| dardel | polblogs.csv | 4 | 0.001697 | 1.324 | 0.331 |
+| dardel | polblogs.csv | 8 | 0.002510 | 0.895 | 0.112 |
+| dardel | polblogs.csv | 16 | 0.003331 | 0.674 | 0.042 |
+| dardel | polblogs.csv | 32 | 0.004682 | 0.480 | 0.015 |
+| dardel | polblogs.csv | 64 | 0.007997 | 0.281 | 0.004 |
+| dardel | synthetic_100k_1m.csv | 1 | 0.033882 | 1.000 | 1.000 |
+| dardel | synthetic_100k_1m.csv | 2 | 0.018967 | 1.786 | 0.893 |
+| dardel | synthetic_100k_1m.csv | 4 | 0.011699 | 2.896 | 0.724 |
+| dardel | synthetic_100k_1m.csv | 8 | 0.009030 | 3.752 | 0.469 |
+| dardel | synthetic_100k_1m.csv | 16 | 0.007848 | 4.317 | 0.270 |
+| dardel | synthetic_100k_1m.csv | 32 | 0.008923 | 3.797 | 0.119 |
+| dardel | synthetic_100k_1m.csv | 64 | 0.013099 | 2.587 | 0.040 |
 
 ### 3.2 MPI Strong Scaling (fixed dataset)
 | Platform | Dataset | Ranks | PR time (s) | Speedup vs 1 rank | Efficiency (= speedup / ranks) |
@@ -185,6 +196,18 @@ shortens PR time from `16.79` ms to `16.31` ms (a `1.03x` improvement), which
 shows the OpenMP scaling ceiling identified in §3.1 (memory bandwidth bound
 near T = 8) also caps the Hybrid sweet spot on this node.
 
+On Dardel (AMD EPYC Zen2, 128 cores per node, dual-socket) the OpenMP scaling
+on `synthetic_100k_1m.csv` is the cleanest measured: efficiency stays above
+`0.72` through `T = 4`, peaks at `4.32x` speedup at `T = 16`, and only mildly
+regresses to `3.80x` at `T = 32` before SMT-induced collapse at `T = 64`. The
+absence of the KTH-style `T = 16` mid-curve regression suggests EPYC chiplet
+boundaries are crossed more gradually than Intel Sapphire Rapids sub-NUMA
+clusters, but the same memory-bandwidth ceiling caps absolute speedup near
+`4-5x` despite `128` physical cores. Polblogs on Dardel sweeps in the same
+direction: `T = 2` reaches efficiency `0.68`, then performance degrades from
+`T = 8` onward because the per-iteration work (`19090` edges over `108`
+iterations) cannot amortise fork-join overhead beyond a handful of threads.
+
 Colab provides only `2` vCPUs on a shared host (Intel Xeon @ 2.20 GHz), so it
 contributes a controlled oversubscription contrast rather than a high-rank
 scaling point. The `P*N = 2` rows are the meaningful measurements: `(1, 2)`
@@ -252,6 +275,7 @@ thread-only `1x8` and `1x16` layouts.
 - Colab OpenMP scaling data: `results/openmp_scaling_colab.csv` (per-run logs under `results/openmp_scaling_colab/`)
 - KTH OpenMP scaling data: `results/openmp_scaling_kth.csv` (per-run logs under `results/openmp_scaling_kth/`); supersedes the earlier single-run polblogs rows
 - KTH Hybrid fixed-core data: `results/hybrid_fixedcore_cluster_pn4_synthetic_100k_1m_directed.csv` (P*N=4), `results/hybrid_fixedcore_cluster_pn8_synthetic_100k_1m_directed.csv` (P*N=8); existing `results/hybrid_fixedcore_cluster_polblogs_directed.csv` retains P*N=16 polblogs sweep
+- Dardel OpenMP scaling data: `results/openmp_scaling_dardel.csv` (per-run logs under `results/openmp_scaling_dardel/`); single-node `--exclusive` allocation on `main` partition (AMD EPYC Zen2)
 - Colab Hybrid fixed-core data: `results/hybrid_fixedcore_colab_pn2_polblogs_directed.csv`, `results/hybrid_fixedcore_colab_pn4_polblogs_directed.csv` (P*N=4 oversubscribed)
 - Correctness matrix (OpenMP/GPU): `results/verification_matrix.md`
 - Serial hotspot context: `results/hotspot_notes.md`, `results/gprof_polblogs.txt`, `results/perf_stat_polblogs.txt`
