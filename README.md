@@ -119,7 +119,9 @@ DD2356 JupyterHub `Small GPU` server. It exposes a shared NVIDIA MIG GPU and
 up to eight CPU cores. The runner below first tests whether `nvc` or GCC
 NVPTX can execute an OpenMP target region on the GPU; it refuses to collect
 formal timings if the target falls back to the CPU. Since the server has only
-eight CPUs, its same-node Hybrid control is `4x2`.
+eight CPUs, its same-node Hybrid control is `4x2`. The runner disables the
+x86 CET flag for GCC NVPTX compilation because it is unsupported on the
+offload target.
 
 ```bash
 git clone --branch codex/wang-dardel-experiments \

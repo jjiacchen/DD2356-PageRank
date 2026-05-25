@@ -94,12 +94,13 @@ try_gpu_compiler() {
 }
 
 # NVIDIA HPC SDK has the most direct OpenMP GPU interface when installed.
-# The DD2356 image documents GCC/OpenMP, so try GCC NVPTX next.
+# Ubuntu's GCC build defaults to CET for the x86 host; explicitly disable it
+# because the NVPTX offload target does not support -fcf-protection.
 if try_gpu_compiler "nvc" "nvc" "-mp=gpu" "-mp=gpu"; then
     :
-elif try_gpu_compiler "gcc_nvptx" "gcc" "-fopenmp -foffload=nvptx-none" "-fopenmp -foffload=nvptx-none"; then
+elif try_gpu_compiler "gcc_nvptx_nocet" "gcc" "-fopenmp -foffload=nvptx-none -fcf-protection=none" "-fopenmp -foffload=nvptx-none -fcf-protection=none"; then
     :
-elif try_gpu_compiler "gcc_configured_default" "gcc" "-fopenmp" "-fopenmp"; then
+elif try_gpu_compiler "gcc_configured_nocet" "gcc" "-fopenmp -fcf-protection=none" "-fopenmp -fcf-protection=none"; then
     :
 else
     echo "" >&2
