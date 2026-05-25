@@ -94,13 +94,14 @@ try_gpu_compiler() {
 }
 
 # NVIDIA HPC SDK has the most direct OpenMP GPU interface when installed.
-# Ubuntu's GCC build defaults to CET for the x86 host; explicitly disable it
-# because the NVPTX offload target does not support -fcf-protection.
+# Ubuntu hardening options can be propagated into device kernels. Explicitly
+# disable CET and stack protection because NVPTX supports neither the CET
+# instruction set nor the host-only __stack_chk_guard symbol.
 if try_gpu_compiler "nvc" "nvc" "-mp=gpu" "-mp=gpu"; then
     :
-elif try_gpu_compiler "gcc_nvptx_nocet" "gcc" "-fopenmp -foffload=nvptx-none -fcf-protection=none" "-fopenmp -foffload=nvptx-none -fcf-protection=none"; then
+elif try_gpu_compiler "gcc_nvptx_device_safe" "gcc" "-fopenmp -foffload=nvptx-none -fcf-protection=none -fno-stack-protector" "-fopenmp -foffload=nvptx-none -fcf-protection=none -fno-stack-protector"; then
     :
-elif try_gpu_compiler "gcc_configured_nocet" "gcc" "-fopenmp -fcf-protection=none" "-fopenmp -fcf-protection=none"; then
+elif try_gpu_compiler "gcc_configured_device_safe" "gcc" "-fopenmp -fcf-protection=none -fno-stack-protector" "-fopenmp -fcf-protection=none -fno-stack-protector"; then
     :
 else
     echo "" >&2
