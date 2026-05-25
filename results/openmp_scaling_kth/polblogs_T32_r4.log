@@ -1,0 +1,31 @@
+=== OpenMP PageRank ===
+File      : data/polblogs.csv
+Mode      : directed
+Threads   : 32
+Update schedule : dynamic,256
+Damping   : 0.8500
+Tolerance : 1.00e-10
+Max iter  : 1000
+
+Nodes     : 1224
+Edges     : 19090
+Load time : 0.0022 s
+
+Iterations : 108
+PR time    : 0.014764 s
+PR sum     : 1.0000000000  (should be ~1.0)
+
+Top-10 nodes:
+  Rank    Node                  PageRank
+  ------  --------------------  --------------------
+  1       155                   0.0188356792
+  2       55                    0.0159853653
+  3       1051                  0.0132534055
+  4       855                   0.0131133847
+  5       641                   0.0130521583
+  6       1153                  0.0114533081
+  7       963                   0.0112447025
+  8       729                   0.0110701931
+  9       1245                  0.0093797963
+  10      798                   0.0090422451
+Results saved: pagerank_openmp_output.txt

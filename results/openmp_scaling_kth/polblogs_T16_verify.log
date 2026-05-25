@@ -1,0 +1,10 @@
+=== Correctness Verification ===
+Reference : pagerank_serial_polblogs_kth.txt  (1224 nodes)
+Candidate : pagerank_openmp_output.txt  (1224 nodes)
+Tolerance : 1.00e-08
+
+Max |err| : 1.734723e-18  (node: 1041)
+L1  error : 1.584833e-16
+L2  error : 8.624563e-18
+
+[PASS] Max error within tolerance 1.00e-08
