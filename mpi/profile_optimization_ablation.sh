@@ -282,7 +282,7 @@ fieldnames = [
 ]
 
 with open(summary_csv, "w", newline="", encoding="utf-8") as handle:
-    writer = csv.DictWriter(handle, fieldnames=fieldnames)
+    writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()
     for key in sorted(groups, key=lambda item: (item[5], item[3], item[4], variant_order.get(item[2], 99))):
         dataset, mode, variant, ranks, threads, workers = key

@@ -75,6 +75,43 @@ Validation checks:
 - The Hybrid `4x2` baseline was measured on the same server and graph; it is
   `3.249995x` faster than persistent GPU offloading for the tested PR kernel.
 
+## Validated Optimization Data
+
+The formal optimization ablation was run on the DD2356 school-cluster CPU
+session with OpenMPI core binding (`OMP_PLACES=cores`,
+`OMP_PROC_BIND=close`). The environment and binding logs show Linux/OpenMPI
+execution and disjoint core placement for representative `1x16`, `4x4`, and
+`16x1` layouts. Both datasets contain four variants across nine layouts, with
+ten timed repetitions after one warmup.
+
+| Dataset | Config | PR before (s) | PR full opt. (s) | Full speedup | Efficiency before | Efficiency full opt. | Efficiency delta | Status |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| synthetic_100k_1m | `1x1` | 0.035842 | 0.032455 | 1.1043 | 1.0000 | 1.0000 | +0.0000 | PASS |
+| synthetic_100k_1m | `1x4` | 0.012826 | 0.010960 | 1.1702 | 0.6986 | 0.7403 | +0.0417 | PASS |
+| synthetic_100k_1m | `1x8` | 0.006531 | 0.006945 | 0.9403 | 0.6860 | 0.5841 | -0.1019 | PASS |
+| synthetic_100k_1m | `1x16` | 0.005576 | 0.005765 | 0.9672 | 0.4017 | 0.3518 | -0.0499 | PASS |
+| synthetic_100k_1m | `2x8` | 0.006187 | 0.005274 | 1.1732 | 0.3621 | 0.3846 | +0.0226 | PASS |
+| synthetic_100k_1m | `4x4` | 0.007609 | 0.007524 | 1.0113 | 0.2944 | 0.2696 | -0.0248 | PASS |
+
+| Skewed stress input | Config | Static thread imbalance | Dynamic thread imbalance | Balance improvement | Static update time (s) | Dynamic update time (s) |
+|---|---|---:|---:|---:|---:|---:|
+| skewed_100k_1m | `1x4` | 3.1591 | 1.1489 | 2.750x | 0.028158 | 0.010108 |
+| skewed_100k_1m | `1x8` | 6.0388 | 1.2420 | 4.862x | 0.020228 | 0.005293 |
+| skewed_100k_1m | `1x16` | 11.7988 | 1.2415 | 9.504x | 0.017573 | 0.003117 |
+
+Validation checks:
+
+- Each summary CSV has `36` rows and each raw CSV has `360` timed rows; all
+  runs are `PASS`.
+- Every reported diagnostic uses exactly `P*N` OpenMP workers, and each
+  variant has its own `1x1` efficiency baseline.
+- Reciprocal caching plus dynamic scheduling is beneficial for several regular
+  graph layouts, but it is not universally faster: regular `1x16` reduces
+  update time while losing end-to-end efficiency.
+- The controlled skewed input directly validates the scheduling bottleneck:
+  dynamic scheduling reduces both measured thread imbalance and update-kernel
+  time at `1x4`, `1x8`, and `1x16`.
+
 ## Evidence Matrix
 
 | A-level requirement | Current evidence | Status | Missing evidence or action |
@@ -89,7 +126,7 @@ Validation checks:
 | MPI strong and weak scaling on multiple Dardel compute nodes | `main` job `20957663`; verified multi-node strong/weak CSVs plus `results/dardel_multinode_placement.csv` for `nid001120;nid001121` | Complete | None identified for the measured 1--16 rank sequence. |
 | Hybrid MPI+OpenMP implementation and correctness | `mpi/pagerank_hybrid.c`, fixed-core CSVs, PASS verification | Complete in implementation | None for correctness. |
 | Hybrid overhead analysis and best `(P,N)` on school cluster for a few total-core values | Fixed-total-16 sweeps exist for two datasets; report analyzes MPI communication | Partial | Run at least two additional total-worker budgets, e.g. 4 and 8 (or 8 and 32 if allocated), and explicitly model thread overhead plus MPI overhead. |
-| Two profiling-guided optimizations | Reciprocal out-degree and dynamic scheduling; earlier fixed-16 cluster ablation shows PR-time differences; formal Medium-CPU evidence runner now records update-kernel time, thread imbalance, and per-variant parallel efficiency | Pending formal run | Run `scripts/run_cluster_optimization_evidence.sh` on DD2356 Medium CPU, validate both 36-row summaries and then integrate before/after efficiency tables in the report. |
+| Two profiling-guided optimizations | Formal CPU ablation: two inputs, four variants, nine layouts, ten timed repeats; update-kernel time, thread imbalance, and per-variant parallel efficiency are reported | Complete for Pengyu Wang's optimization scope | None identified for this requirement. |
 | OpenMP GPU offloading correctness and comparison with MPI+OpenMP | Confirmed-device H100 MIG run; nine-dataset GPU correctness CSV; naive/persistent optimization; same-server Hybrid `4x2` comparison on the synthetic graph | Complete for Pengyu Wang's GPU scope | None identified for this requirement. |
 | Strong-scaling and weak-scaling report sections | Wang section includes KTH and formal multi-node Dardel MPI tables, placement evidence, and analysis | Complete for Wang's MPI scaling scope | None identified for MPI scaling. |
 
@@ -102,11 +139,8 @@ High priority:
 2. Hybrid fixed-core search at multiple total-worker budgets on the school
    cluster, beyond the existing `P*N=16` sweep (Minyi Zhu's scope).
 
-Before submission:
-
-3. Run the prepared Medium-CPU optimization workflow and add its validated
-   before/after update-kernel and parallel-efficiency results for Wang's two
-   optimizations.
+No additional Wang-owned runtime measurement is identified for the selected
+MPI, optimization, and GPU-offloading scope.
 
 ## Current Reporting Caution
 
@@ -117,6 +151,6 @@ remain useful diagnostics, but must remain clearly labeled as such.
 The GPU evidence now refers to the confirmed NVIDIA H100 MIG target run on the
 DD2356 Small GPU server; older local fallback timings remain diagnostic only.
 The existing Dardel optimization ablation remains diagnostic only because its
-Hybrid job steps emitted CPU-allocation mismatch warnings. Formal optimization
-completion is conditioned on the Medium-CPU results generated by
-`scripts/run_cluster_optimization_evidence.sh`.
+Hybrid job steps emitted CPU-allocation mismatch warnings. The final
+optimization conclusions instead use the validated school-cluster CPU data
+generated by `scripts/run_cluster_optimization_evidence.sh`.

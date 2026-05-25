@@ -17,7 +17,7 @@
     BoldItalicFont=*-bolditalic
 ]
 
-\title{DD2356 VT26 Project Report\\Pengyu Wang's Part: MPI Scaling and GPU Offloading}
+\title{DD2356 VT26 Project Report\\Pengyu Wang's Part: MPI Scaling, Optimization, and GPU Offloading}
 \author{Group 26}
 \date{}
 
@@ -400,51 +400,96 @@ destination vertices can have very different numbers of incoming edges,
 pure static assignment. This does not remove MPI collective overhead, but it
 improves the local work distribution within each rank for irregular graphs.
 
-To verify these two choices directly, I added an ablation profiler that builds
-four hybrid variants: \path{no_inv_static}, \path{inv_static},
-\path{no_inv_dynamic}, and \path{inv_dynamic}. The intended comparison is run
-at fixed total workers with \texttt{1x16} and \texttt{4x4}. The effectiveness
-metrics are computed as
+To verify these choices directly, I added an ablation profiler that builds four
+hybrid variants: \path{no_inv_static}, \path{inv_static},
+\path{no_inv_dynamic}, and \path{inv_dynamic}. The formal run was conducted on
+the DD2356 school-cluster CPU server with OpenMPI core binding enabled. For
+each variant and layout, one warmup preceded ten correctness-checked timing
+repetitions. The measured layouts were \texttt{1x1}, \texttt{1x2},
+\texttt{1x4}, \texttt{1x8}, \texttt{1x16}, \texttt{2x8}, \texttt{4x4},
+\texttt{8x2}, and \texttt{16x1}.
+
+The profiler now measures both total PageRank time and sparse update-kernel
+time. A diagnostic traversal outside the timed interval also counts the
+incoming edges processed by each OpenMP worker; its imbalance metric is
+$\max_t M_t/\overline{M_t}$. Thus this metric observes thread work directly
+rather than inferring thread behavior from MPI rank imbalance. Parallel
+efficiency is computed separately for each variant from its own single-worker
+baseline:
 \[
 \begin{aligned}
-S_{\mathrm{inv}} &= T_{\mathrm{no\_inv\_static}} / T_{\mathrm{inv\_static}},\\
-S_{\mathrm{dyn}} &= T_{\mathrm{inv\_static}} / T_{\mathrm{inv\_dynamic}}.
+S_v(P,N) &= T_v(1,1)/T_v(P,N),\\
+E_v(P,N) &= S_v(P,N)/(PN).
 \end{aligned}
 \]
-and the full optimization speedup is
-$T_{\mathrm{no\_inv\_static}}/T_{\mathrm{inv\_dynamic}}$. Table~\ref{tab:wang-optimization-ablation}
-reports the measured school-cluster averages from the two
-\path{results/optimization_ablation_cluster_*.csv} summary files; all variants
-passed verification against the serial reference.
+For irregular-load evidence, a controlled \texttt{skewed\_100k\_1m.csv}
+input first inserts one cycle edge per node and directs 80\% of remaining
+edges to the first 6250 destination nodes. This preserves a deterministic,
+contiguous hot region for comparing static and dynamic schedules. Both formal
+summary CSVs contain all $4\times9=36$ rows, the raw CSVs contain 360 timed
+samples each, and every sample passes verification against the serial
+reference.
 
 \begin{table}[H]
 \centering
-\caption{School-cluster optimization ablation, PR time in seconds.}
+\caption{Formal optimization evidence on the regular synthetic graph. PR and
+update times are seconds; efficiency is relative to each variant's own
+\texttt{1x1} baseline.}
 \label{tab:wang-optimization-ablation}
 \scriptsize
-\begin{tabular}{llrrrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
-Dataset & Config & No-inv static & Inv static & No-inv dyn. & Inv dyn. & Full speedup \\
+Config & PR before & PR full opt. & Speedup & Update before & Update full opt. & $E$ before & $E$ full opt. \\
 \midrule
-\texttt{synthetic\_100k\_1m} & \texttt{1x16} & 0.035235 & 0.033692 & 0.038780 & \textbf{0.030837} & \textbf{1.1426} \\
-\texttt{synthetic\_100k\_1m} & \texttt{4x4}  & 0.012647 & 0.014116 & 0.012424 & \textbf{0.010092} & \textbf{1.2532} \\
-\texttt{polblogs}            & \texttt{1x16} & 0.028250 & \textbf{0.023086} & 0.028299 & 0.026190 & 1.0787 \\
-\texttt{polblogs}            & \texttt{4x4}  & \textbf{0.005697} & 0.008286 & 0.006149 & 0.005961 & 0.9557 \\
+\texttt{1x1}  & 0.035842 & 0.032455 & 1.1043 & 0.033078 & 0.029548 & 1.0000 & 1.0000 \\
+\texttt{1x4}  & 0.012826 & 0.010960 & 1.1702 & 0.010691 & 0.008779 & 0.6986 & \textbf{0.7403} \\
+\texttt{1x8}  & 0.006531 & 0.006945 & 0.9403 & 0.004768 & 0.004852 & \textbf{0.6860} & 0.5841 \\
+\texttt{1x16} & 0.005576 & 0.005765 & 0.9672 & 0.003683 & 0.002765 & \textbf{0.4017} & 0.3518 \\
+\texttt{2x8}  & 0.006187 & 0.005274 & 1.1732 & 0.003532 & 0.002912 & 0.3621 & \textbf{0.3846} \\
+\texttt{4x4}  & 0.007609 & 0.007524 & 1.0113 & 0.003938 & 0.003026 & \textbf{0.2944} & 0.2696 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The ablation results are mixed but useful. On the larger synthetic graph, the
-fully optimized variant is best for both tested configurations: it improves
-\texttt{1x16} by $1.1426\times$ and \texttt{4x4} by $1.2532\times$ over the
-unoptimized static/division version. In the \texttt{4x4} case, dynamic
-scheduling is the dominant local optimization, improving
-\texttt{inv\_static} to \texttt{inv\_dynamic} by $1.3987\times$. On
-\texttt{polblogs.csv}, the graph is small enough that timing noise and MPI
-collective overhead hide some local kernel gains: precomputing
-\texttt{inv\_out\_degree} helps the single-rank \texttt{1x16} case
-($1.2237\times$), while the full \texttt{4x4} optimization is slightly slower
-than the unoptimized baseline ($0.9557\times$).
+\begin{table}[H]
+\centering
+\caption{Dynamic-scheduling evidence on the controlled skewed graph. The
+static column uses \texttt{inv\_static}; the dynamic column uses
+\texttt{inv\_dynamic}.}
+\label{tab:wang-optimization-skewed}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Config & Static imbalance & Dynamic imbalance & Reduction & Static update (s) & Dynamic update (s) \\
+\midrule
+\texttt{1x4}  & 3.1591  & 1.1489 & 2.750$\times$ & 0.028158 & 0.010108 \\
+\texttt{1x8}  & 6.0388  & 1.2420 & 4.862$\times$ & 0.020228 & 0.005293 \\
+\texttt{1x16} & 11.7988 & 1.2415 & 9.504$\times$ & 0.017573 & 0.003117 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The formal results show two different regimes. On the regular synthetic graph,
+the complete optimization improves PageRank time by $1.1043\times$ at
+\texttt{1x1}, $1.1702\times$ at \texttt{1x4}, and $1.1732\times$ at
+\texttt{2x8}; the efficiency gain at \texttt{1x4} is $+0.0417$. It is not a
+universal scaling improvement: at \texttt{1x16}, update-kernel time falls from
+$0.003683$ to $0.002765$ s while end-to-end PageRank time is slightly worse,
+and efficiency falls by $0.0499$. Synchronization and scheduling overhead
+therefore offsets the kernel reduction at that layout. On the controlled
+skewed graph, dynamic scheduling directly addresses the second bottleneck:
+at \texttt{1x16}, imbalance falls from $11.7988$ to $1.2415$ and
+update-kernel time falls from $0.017573$ to $0.003117$ s. This is a measured
+thread-load result, not a claim inferred from MPI-rank work.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth]{results/figures/cluster_optimization/optimization_efficiency.png}
+\includegraphics[width=0.48\textwidth]{results/figures/cluster_optimization/optimization_thread_imbalance.png}
+\caption{Before/after parallel efficiency on the regular graph (left), and
+static versus dynamic thread imbalance on the skewed stress graph (right).}
+\label{fig:wang-optimization-evidence}
+\end{figure}
 
 OpenMP target execution was formally confirmed on the DD2356 Small GPU server:
 the run detected one NVIDIA H100 \texttt{MIG 1g.10gb} target device, and
@@ -540,7 +585,10 @@ multi-node MPI requirement: every multi-rank strong/weak row is placed across
 \texttt{nid001120} and \texttt{nid001121}, and the 16-rank weak row uses the
 required 200k-node/2M-edge graph. Confirmed-device OpenMP target measurements
 on the DD2356 Small GPU server also close Wang's GPU-offloading comparison.
-The remaining entries below belong to Minyi Zhu's OpenMP/hybrid analysis scope.
+The formal school-cluster CPU optimization experiment closes Wang's
+profiling-guided optimization evidence with update-kernel, thread-imbalance,
+and parallel-efficiency measurements. The remaining entries below belong to
+Minyi Zhu's OpenMP/hybrid analysis scope.
 
 \begin{table}[H]
 \centering
@@ -566,6 +614,9 @@ Minyi scope: provide scaling measurements on three systems \\
 GPU offload comparison with Hybrid &
 Confirmed H100 MIG execution; nine-dataset PASS; same-server GPU naive/persistent and Hybrid \texttt{4x2} comparison &
 Complete for Wang's GPU scope \\
+Profiling-guided optimizations &
+Formal CPU ablation: two inputs, four variants, nine layouts, ten repeats; thread imbalance and efficiency included &
+Complete for Wang's optimization scope \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -577,9 +628,12 @@ Pengyu Wang implemented the MPI decomposition and communication timing, ran and
 analyzed the Dardel multi-node and school-cluster MPI strong/weak-scaling
 experiments, added the 16-rank weak-scaling workflow with dynamically sized
 graph readers, integrated the MPI result pipeline, and implemented and measured
-OpenMP GPU offloading. The final GPU evidence confirms execution on an NVIDIA
-H100 MIG device, demonstrates the persistent-device-data optimization against
-the naive target baseline, and compares it with the group Hybrid
-\texttt{4x2} baseline on the same server and graph.
+OpenMP GPU offloading. Wang also completed the formal CPU ablation evidence for
+reciprocal out-degree caching and dynamic scheduling, including before/after
+parallel efficiency and controlled thread-imbalance measurements. The final
+GPU evidence confirms execution on an NVIDIA H100 MIG device, demonstrates the
+persistent-device-data optimization against the naive target baseline, and
+compares it with the group Hybrid \texttt{4x2} baseline on the same server and
+graph.
 
 \end{document}

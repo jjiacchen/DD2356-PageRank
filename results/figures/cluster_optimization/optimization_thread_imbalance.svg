@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="510" viewBox="0 0 900 510">
+<rect width="100%" height="100%" fill="white"/>
+<text x="82" y="30" font-family="Arial, sans-serif" font-size="20" font-weight="bold">Skewed Stress Graph: Thread In-edge Imbalance</text>
+<text x="18" y="239.0" transform="rotate(-90 18 239.0)" font-family="Arial, sans-serif" font-size="14">max / average work</text>
+<line x1="82" y1="418.0" x2="870" y2="418.0" stroke="#e5e7eb"/>
+<text x="74" y="423.0" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#374151">0.000</text>
+<line x1="82" y1="328.5" x2="870" y2="328.5" stroke="#e5e7eb"/>
+<text x="74" y="333.5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#374151">3.392</text>
+<line x1="82" y1="239.0" x2="870" y2="239.0" stroke="#e5e7eb"/>
+<text x="74" y="244.0" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#374151">6.784</text>
+<line x1="82" y1="149.5" x2="870" y2="149.5" stroke="#e5e7eb"/>
+<text x="74" y="154.5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#374151">10.176</text>
+<line x1="82" y1="60.0" x2="870" y2="60.0" stroke="#e5e7eb"/>
+<text x="74" y="65.0" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#374151">13.569</text>
+<line x1="82" y1="418" x2="870" y2="418" stroke="#111827"/>
+<rect x="168.3" y="334.6" width="42.0" height="83.4" fill="#607D8B"/>
+<text x="189.3" y="328.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">3.159</text>
+<rect x="216.3" y="387.7" width="42.0" height="30.3" fill="#E67E22"/>
+<text x="237.3" y="381.7" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">1.149</text>
+<text x="213.3" y="443" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">1x4</text>
+<rect x="431.0" y="258.7" width="42.0" height="159.3" fill="#607D8B"/>
+<text x="452.0" y="252.7" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">6.039</text>
+<rect x="479.0" y="385.2" width="42.0" height="32.8" fill="#E67E22"/>
+<text x="500.0" y="379.2" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">1.242</text>
+<text x="476.0" y="443" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">1x8</text>
+<rect x="693.7" y="106.7" width="42.0" height="311.3" fill="#607D8B"/>
+<text x="714.7" y="100.7" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">11.799</text>
+<rect x="741.7" y="385.2" width="42.0" height="32.8" fill="#E67E22"/>
+<text x="762.7" y="379.2" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">1.241</text>
+<text x="738.7" y="443" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">1x16</text>
+<rect x="82" y="465" width="16" height="16" fill="#607D8B"/>
+<text x="105" y="478" font-family="Arial, sans-serif" font-size="13">inv_static</text>
+<rect x="302" y="465" width="16" height="16" fill="#E67E22"/>
+<text x="325" y="478" font-family="Arial, sans-serif" font-size="13">inv_dynamic</text>
+</svg>

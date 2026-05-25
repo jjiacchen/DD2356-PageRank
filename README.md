@@ -77,6 +77,13 @@ records OpenMPI binding evidence, measures all four variants at
 `tools/analyze_optimization_results.py`. Download
 `wang_cluster_optimization_results.tar.gz` after completion.
 
+The committed formal evidence is in
+`results/optimization_ablation_cluster_optpe_*_directed.csv` and
+`results/optimization_evidence_cluster.md`. For `synthetic_100k_1m`, the full
+optimization improves `1x4` PageRank time by `1.1702x` with a `+0.0417`
+parallel-efficiency change; for the controlled skew input it reduces `1x16`
+thread imbalance from `11.7988` to `1.2415`.
+
 On Open MPI wrappers that default to Apple clang, use the same compiler
 override for local exploratory runs:
 ```bash

@@ -180,6 +180,69 @@ def write_grouped_bar_svg(
     path.write_text("\n".join(elements), encoding="utf-8")
 
 
+def write_grouped_bar_png(
+    path: Path,
+    title: str,
+    ylabel: str,
+    labels: Sequence[str],
+    before: Sequence[float],
+    after: Sequence[float],
+    before_name: str,
+    after_name: str,
+) -> bool:
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return False
+
+    def font(size: int):
+        try:
+            return ImageFont.truetype("Arial.ttf", size)
+        except OSError:
+            return ImageFont.load_default()
+
+    width, height = 1400, 820
+    left, top, right, bottom = 130, 120, 1340, 670
+    plot_w, plot_h = right - left, bottom - top
+    peak = max([*before, *after, 1e-12]) * 1.18
+    image = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(image)
+    text = (15, 23, 42)
+    muted = (100, 116, 139)
+    grid = (226, 232, 240)
+    before_color = (96, 125, 139)
+    after_color = (230, 126, 34)
+    draw.text((65, 35), title, fill=text, font=font(28))
+    draw.text((28, 90), ylabel, fill=muted, font=font(17))
+    for step in range(6):
+        value = peak * step / 5
+        y = bottom - plot_h * step / 5
+        draw.line((left, y, right, y), fill=grid, width=1)
+        draw.text((28, y - 10), f"{value:.3f}", fill=muted, font=font(14))
+    draw.line((left, bottom, right, bottom), fill=text, width=2)
+    group_w = plot_w / max(len(labels), 1)
+    bar_w = min(70, int(group_w * 0.32))
+    for index, label in enumerate(labels):
+        center = left + group_w * (index + 0.5)
+        for value, color, x in (
+            (before[index], before_color, center - bar_w - 5),
+            (after[index], after_color, center + 5),
+        ):
+            bar_h = plot_h * value / peak
+            y = bottom - bar_h
+            draw.rectangle((x, y, x + bar_w, bottom), fill=color)
+            draw.text((x, max(top + 5, y - 25)), f"{value:.3f}", fill=text, font=font(13))
+        draw.text((center - 22, bottom + 20), label, fill=text, font=font(16))
+    legend_y = 758
+    draw.rectangle((left, legend_y - 16, left + 20, legend_y + 4), fill=before_color)
+    draw.text((left + 30, legend_y - 16), before_name, fill=text, font=font(16))
+    draw.rectangle((left + 300, legend_y - 16, left + 320, legend_y + 4), fill=after_color)
+    draw.text((left + 330, legend_y - 16), after_name, fill=text, font=font(16))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(path)
+    return True
+
+
 def main() -> None:
     args = parse_args()
     regular_rows = load_summary(args.regular_csv)
@@ -212,6 +275,16 @@ def main() -> None:
             "no_inv_static",
             "inv_dynamic",
         )
+        write_grouped_bar_png(
+            args.figure_dir / "optimization_pr_time.png",
+            "Regular Synthetic Graph: PageRank Time",
+            "PR time (s)",
+            primary_configs,
+            [numeric(regular[("no_inv_static", setting)], "pr_time_avg_s") for setting in primary_configs],
+            [numeric(regular[("inv_dynamic", setting)], "pr_time_avg_s") for setting in primary_configs],
+            "no_inv_static",
+            "inv_dynamic",
+        )
     if efficiency_configs:
         write_grouped_bar_svg(
             args.figure_dir / "optimization_efficiency.svg",
@@ -223,9 +296,29 @@ def main() -> None:
             "no_inv_static",
             "inv_dynamic",
         )
+        write_grouped_bar_png(
+            args.figure_dir / "optimization_efficiency.png",
+            "Regular Synthetic Graph: Parallel Efficiency",
+            "Efficiency",
+            efficiency_configs,
+            [numeric(regular[("no_inv_static", setting)], "parallel_efficiency_vs_variant_1x1") for setting in efficiency_configs],
+            [numeric(regular[("inv_dynamic", setting)], "parallel_efficiency_vs_variant_1x1") for setting in efficiency_configs],
+            "no_inv_static",
+            "inv_dynamic",
+        )
     if imbalance_configs:
         write_grouped_bar_svg(
             args.figure_dir / "optimization_thread_imbalance.svg",
+            "Skewed Stress Graph: Thread In-edge Imbalance",
+            "max / average work",
+            imbalance_configs,
+            [numeric(skewed[("inv_static", setting)], "thread_imbalance") for setting in imbalance_configs],
+            [numeric(skewed[("inv_dynamic", setting)], "thread_imbalance") for setting in imbalance_configs],
+            "inv_static",
+            "inv_dynamic",
+        )
+        write_grouped_bar_png(
+            args.figure_dir / "optimization_thread_imbalance.png",
             "Skewed Stress Graph: Thread In-edge Imbalance",
             "max / average work",
             imbalance_configs,

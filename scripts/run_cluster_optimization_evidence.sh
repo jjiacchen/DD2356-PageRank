@@ -90,7 +90,7 @@ tar -czf wang_cluster_optimization_results.tar.gz \
     results/optimization_ablation_cluster_optpe_*.csv \
     results/cluster_optimization_*.log \
     results/optimization_evidence_cluster.md \
-    results/figures/cluster_optimization/*.svg
+    results/figures/cluster_optimization/*
 
 echo ""
 echo "Formal optimization experiment complete."

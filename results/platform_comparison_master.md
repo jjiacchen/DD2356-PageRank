@@ -7,6 +7,7 @@ Platforms:
 - `colab`
 - `kth`
 - `dardel`
+- `cluster_cpu` (DD2356 school-cluster CPU session / pinned OpenMPI cores)
 - `cluster_gpu` (DD2356 Small GPU server / NVIDIA H100 `MIG 1g.10gb`)
 
 Variants:
@@ -158,6 +159,29 @@ Persistent GPU data mapping is `1.776212x` faster than the naive offload path,
 while the same-server Hybrid control is `3.249995x` faster than persistent GPU
 PageRank at this graph size.
 
+### 3.6 Profiling-Guided Optimization Evidence (school-cluster CPU)
+
+The formal optimization run uses `synthetic_100k_1m.csv (directed)` as the
+main performance input. Each variant has its own `1x1` baseline for parallel
+efficiency; each table row averages ten verified timed repetitions after one
+warmup.
+
+| Configuration | PR no-inv/static (s) | PR inv/dynamic (s) | Full speedup | Efficiency no-inv/static | Efficiency inv/dynamic | Efficiency delta | Status |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `1x1` | 0.035842 | 0.032455 | 1.1043 | 1.0000 | 1.0000 | +0.0000 | PASS |
+| `1x4` | 0.012826 | 0.010960 | 1.1702 | 0.6986 | 0.7403 | +0.0417 | PASS |
+| `1x8` | 0.006531 | 0.006945 | 0.9403 | 0.6860 | 0.5841 | -0.1019 | PASS |
+| `1x16` | 0.005576 | 0.005765 | 0.9672 | 0.4017 | 0.3518 | -0.0499 | PASS |
+| `2x8` | 0.006187 | 0.005274 | 1.1732 | 0.3621 | 0.3846 | +0.0226 | PASS |
+| `4x4` | 0.007609 | 0.007524 | 1.0113 | 0.2944 | 0.2696 | -0.0248 | PASS |
+
+The controlled `skewed_100k_1m.csv` input exposes contiguous thread-load
+imbalance. At `1x16`, switching from `inv_static` to `inv_dynamic` reduces
+thread imbalance from `11.7988` to `1.2415` and update-kernel time from
+`0.017573` s to `0.003117` s. On the regular graph, the same schedule does
+not improve every end-to-end runtime, so efficiency decreases for the
+thread-only `1x8` and `1x16` layouts.
+
 ---
 
 ## 4) Data Source Mapping
@@ -172,3 +196,4 @@ PageRank at this graph size.
 - Confirmed-device GPU correctness: `results/gpu_correctness_cluster_gpu.csv`
 - Same-server GPU/Hybrid comparison: `results/gpu_offload_cluster_gpu_synthetic_100k_1m_directed.csv`, `results/hybrid_fixedcore_cluster_gpu_synthetic_100k_1m_directed.csv`, and `results/gpu_vs_hybrid_cluster_gpu_synthetic_100k_1m_directed.csv`
 - GPU target evidence: `results/cluster_gpu_environment.log` and `results/cluster_gpu_device_probe.log`
+- Formal optimization evidence: `results/optimization_ablation_cluster_optpe_synthetic_100k_1m_directed.csv`, `results/optimization_ablation_cluster_optpe_skewed_100k_1m_directed.csv`, `results/optimization_evidence_cluster.md`, `results/cluster_optimization_environment.log`, and `results/cluster_optimization_binding.log`

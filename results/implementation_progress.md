@@ -38,7 +38,7 @@ This report implements the attached execution plan and records what is now in th
 - Hybrid fixed-core sweeps have been measured on the school cluster for
   `P*N=16`.
 
-## 5) Bottleneck-driven optimizations + GPU offload validation (GPU complete; optimization evidence pending run)
+## 5) Bottleneck-driven optimizations + GPU offload validation (completed for Wang's scope)
 
 - Optimization A: precomputed reciprocal out-degree (`inv_out_degree`) to avoid repeated divides in hot loops.
 - Optimization B: OpenMP sparse loop scheduling (`dynamic,256`) for irregular incoming-edge workloads.
@@ -54,6 +54,11 @@ This report implements the attached execution plan and records what is now in th
 - Added deterministic `skewed_100k_1m.csv` generation so dynamic scheduling is
   evaluated against a controlled irregular-load stress input rather than
   inferred from MPI-rank imbalance.
+- The formal CPU ablation includes `36` summary rows and `360` correctness-
+  checked timed samples per input. On the regular graph, full optimization
+  improves `1x4` PR time by `1.1702x` and increases parallel efficiency by
+  `+0.0417`; on the skewed input, dynamic scheduling reduces `1x16` thread
+  imbalance from `11.7988` to `1.2415`.
 
 ## 6) Consolidation assets (completed)
 
@@ -68,8 +73,5 @@ This report implements the attached execution plan and records what is now in th
    (Minyi Zhu's OpenMP-analysis scope).
 2. Repeat the school-cluster Hybrid fixed-core search for additional total
    worker budgets beyond `P*N=16` (Minyi Zhu's hybrid-analysis scope).
-3. Run the Medium-CPU optimization-evidence workflow and integrate its
-   before/after parallel-efficiency tables (Pengyu Wang's optimization scope).
-
 See `results/a_grade_requirements_audit.md` for the evidence matrix and scope
 cautions.
