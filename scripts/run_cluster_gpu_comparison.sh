@@ -18,6 +18,8 @@ ENV_LOG="results/${PLATFORM}_environment.log"
 PROBE_OUT="results/${PLATFORM}_device_probe_output.txt"
 PROBE_LOG="results/${PLATFORM}_device_probe.log"
 ARCHIVE="${ARCHIVE:-wang_cluster_gpu_results.tar.gz}"
+RUN_TAG="$(id -un 2>/dev/null || printf 'jupyter')"
+RUN_TAG="${RUN_TAG:-jupyter}"
 
 echo "========================================"
 echo " DD2356 Wang Cluster GPU comparison"
@@ -61,8 +63,8 @@ try_gpu_compiler() {
     local ldflags="$4"
     local build_log="results/${PLATFORM}_compiler_${label}_build.log"
     local run_log="results/${PLATFORM}_compiler_${label}_run.log"
-    local bin="/tmp/pagerank_gpu_probe_${USER}_${label}"
-    local out="/tmp/pagerank_gpu_probe_${USER}_${label}.txt"
+    local bin="/tmp/pagerank_gpu_probe_${RUN_TAG}_${label}"
+    local out="/tmp/pagerank_gpu_probe_${RUN_TAG}_${label}.txt"
     if ! command -v "$compiler" >/dev/null 2>&1; then
         return 1
     fi
