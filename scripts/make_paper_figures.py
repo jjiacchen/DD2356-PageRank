@@ -1,227 +1,160 @@
 #!/usr/bin/env python3
-"""
-Generate publication-quality figures for the DD2356 PageRank report.
-Outputs to results/figures/paper/ as PNG at 300 DPI.
-Run: python3 scripts/make_paper_figures.py
-"""
-import os
+"""Generate auxiliary report figures from the formal result CSV files."""
+
+import csv
+from pathlib import Path
+
 import matplotlib.pyplot as plt
-import numpy as np
 
-OUT = "results/figures/paper"
-os.makedirs(OUT, exist_ok=True)
-plt.rcParams.update({
-    "font.size": 11, "axes.labelsize": 12, "legend.fontsize": 10,
-    "axes.spines.top": False, "axes.spines.right": False,
-})
 
-# ---------------- DATA (from report tables, no CSV needed) ----------------
-mpi_ranks = [1, 2, 4, 8, 16]
+def find_repo_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "results").is_dir() and (parent / "scripts").is_dir():
+            return parent
+    raise RuntimeError("cannot locate repository root")
 
-# Table: MPI strong scaling on synthetic_100k_1m
-speedup_dardel  = [1.000, 0.0042, 0.0050, 0.0036, 0.0022]
-speedup_cluster = [1.000, 1.543,  2.138,  1.705,  1.166]
-comm_dardel     = [0.013, 0.996,  0.998,  0.999,  1.000]
-comm_cluster    = [0.014, 0.177,  0.436,  0.751,  0.848]
 
-# Table: MPI weak scaling efficiency
-weak_ranks = [1, 2, 4, 8, 16]
-weak_eff_dardel  = [1.000, 0.0019, 0.0018, 0.0004, 0.0002]
-weak_eff_cluster = [1.000, 0.619,  0.439,  0.286,  0.136]
+ROOT = find_repo_root()
+RESULTS = ROOT / "results"
+OUT = RESULTS / "figures" / "paper"
+OUT.mkdir(parents=True, exist_ok=True)
 
-# Table: OpenMP three-system on synthetic_100k_1m
-omp_T = [1, 2, 4, 8, 16, 32, 64]
-omp_colab  = [1.00, 0.84, 1.27, None, None, None, None]  # only 1,2,4
-omp_kth    = [1.00, 1.48, 2.46, 3.57, 2.79, 4.48, 1.83]
-omp_dardel = [1.00, 1.79, 2.90, 3.75, 4.32, 3.80, 2.59]
+plt.rcParams.update(
+    {
+        "font.size": 11,
+        "axes.labelsize": 12,
+        "legend.fontsize": 10,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+    }
+)
 
-# Pie: Dardel weak P=16 breakdown (PR time = 23.83 s; Allgatherv = 21.81 s)
-# Remaining 2.02 s = Allreduce + local compute (approx 50/50 split typical)
-pie_labels = ["MPI\\_Allgatherv\n(91.5\\%)", "Allreduce\n(4\\%)", "Local compute\n(4.5\\%)"]
-pie_sizes  = [91.5, 4.0, 4.5]
-pie_colors = ["#d62728", "#ff7f0e", "#2ca02c"]
 
-# ---------------- FIG 1: Cross-platform MPI Speedup ----------------
+def read_rows(relative_path: str, *, dataset: str | None = None) -> list[dict[str, str]]:
+    path = RESULTS / relative_path
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    if dataset is not None:
+        rows = [row for row in rows if row["dataset"] == dataset]
+    if not rows:
+        raise ValueError(f"no rows read from {path}")
+    failed = [row for row in rows if "status" in row and row["status"] != "PASS"]
+    if failed:
+        raise ValueError(f"non-PASS rows in {path}: {failed}")
+    return rows
+
+
+def rank_series(rows: list[dict[str, str]], field: str) -> tuple[list[int], list[float]]:
+    ordered = sorted(rows, key=lambda row: int(row["ranks"]))
+    return [int(row["ranks"]) for row in ordered], [float(row[field]) for row in ordered]
+
+
+def categorical_axis(ax: plt.Axes, values: list[int], label: str) -> list[int]:
+    positions = list(range(len(values)))
+    ax.set_xticks(positions, [str(value) for value in values])
+    ax.set_xlabel(label)
+    return positions
+
+
+dardel_strong = read_rows("mpi_scaling_dardel_multinode_synthetic_100k_1m_directed.csv")
+cluster_strong = read_rows("mpi_scaling_cluster_synthetic_100k_1m_directed.csv")
+dardel_weak = read_rows("mpi_weak_scaling_dardel_multinode_directed.csv")
+cluster_weak = read_rows("mpi_weak_scaling_cluster_directed.csv")
+
+
+# Cross-platform MPI strong-scaling speedup.
+ranks, dardel_speedup = rank_series(dardel_strong, "speedup")
+_, cluster_speedup = rank_series(cluster_strong, "speedup")
 fig, ax = plt.subplots(figsize=(5.0, 3.4))
-ideal = mpi_ranks
-ax.plot(mpi_ranks, ideal, "--", color="gray", lw=1, label="ideal", alpha=0.6)
-ax.plot(mpi_ranks, speedup_dardel,  "o-", color="#1f77b4", lw=2, label="Dardel (Cray MPICH)")
-ax.plot(mpi_ranks, speedup_cluster, "s-", color="#d62728", lw=2, label="KTH cluster (OpenMPI)")
-ax.set_xscale("log", base=2); ax.set_yscale("log")
-ax.set_xticks(mpi_ranks); ax.set_xticklabels(mpi_ranks)
-ax.set_xlabel("MPI ranks $P$"); ax.set_ylabel("Speedup vs.\\ $P{=}1$")
-ax.set_title("MPI strong scaling on synthetic\\_100k\\_1m")
-ax.legend(loc="lower right"); ax.grid(True, which="both", alpha=0.3)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_mpi_speedup.png", dpi=300); plt.close()
+x = categorical_axis(ax, ranks, "MPI ranks $P$")
+ax.plot(x, ranks, "--", color="gray", lw=1, label="ideal", alpha=0.6)
+ax.plot(x, dardel_speedup, "o-", color="#1f77b4", lw=2, label="Dardel two-node")
+ax.plot(x, cluster_speedup, "s-", color="#d62728", lw=2, label="KTH cluster")
+ax.set_ylabel("Speedup vs. $P{=}1$")
+ax.set_title("MPI strong scaling on synthetic_100k_1m")
+ax.legend(loc="upper left")
+ax.grid(True, axis="y", alpha=0.3)
+fig.tight_layout()
+fig.savefig(OUT / "fig_mpi_speedup.png", dpi=300)
+plt.close(fig)
 
-# ---------------- FIG 2: Cross-platform MPI Comm Fraction ----------------
+
+# Cross-platform MPI communication fraction.
+_, dardel_comm = rank_series(dardel_strong, "comm_fraction_avg")
+_, cluster_comm = rank_series(cluster_strong, "comm_fraction_avg")
 fig, ax = plt.subplots(figsize=(5.0, 3.4))
-ax.plot(mpi_ranks, [c*100 for c in comm_dardel],  "o-", color="#1f77b4", lw=2, label="Dardel")
-ax.plot(mpi_ranks, [c*100 for c in comm_cluster], "s-", color="#d62728", lw=2, label="KTH cluster")
-ax.set_xscale("log", base=2)
-ax.set_xticks(mpi_ranks); ax.set_xticklabels(mpi_ranks)
-ax.set_xlabel("MPI ranks $P$"); ax.set_ylabel("Communication fraction (\\%)")
+x = categorical_axis(ax, ranks, "MPI ranks $P$")
+ax.plot(x, [value * 100 for value in dardel_comm], "o-", color="#1f77b4", lw=2, label="Dardel two-node")
+ax.plot(x, [value * 100 for value in cluster_comm], "s-", color="#d62728", lw=2, label="KTH cluster")
+ax.set_ylabel("Communication fraction (%)")
 ax.set_title("Per-iteration communication overhead")
-ax.axhline(99, ls=":", color="gray", alpha=0.5)
-ax.legend(loc="center right"); ax.grid(True, alpha=0.3); ax.set_ylim(0, 105)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_mpi_comm.png", dpi=300); plt.close()
+ax.legend(loc="upper left")
+ax.grid(True, axis="y", alpha=0.3)
+ax.set_ylim(0, 100)
+fig.tight_layout()
+fig.savefig(OUT / "fig_mpi_comm.png", dpi=300)
+plt.close(fig)
 
-# ---------------- FIG 3: Allgatherv pie (worst-case breakdown) ----------------
-fig, ax = plt.subplots(figsize=(4.0, 3.4))
-wedges, texts, autotexts = ax.pie(pie_sizes, labels=pie_labels, colors=pie_colors,
-    autopct="", startangle=90, wedgeprops={"edgecolor": "white", "linewidth": 1.5})
-for t in texts: t.set_fontsize(10)
-ax.set_title("Dardel weak $P{=}16$\nPR-time breakdown (23.8\\,s total)")
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_breakdown_pie.png", dpi=300); plt.close()
 
-# ---------------- FIG 4: OpenMP three-platform speedup ----------------
+# Exact Dardel weak-scaling communication/local split at P=16.
+weak_16 = next(row for row in dardel_weak if int(row["ranks"]) == 16)
+pr_time = float(weak_16["pr_time_avg_s"])
+comm_time = float(weak_16["comm_time_avg_s"])
+local_time = pr_time - comm_time
+comm_pct = 100 * comm_time / pr_time
+local_pct = 100 * local_time / pr_time
+fig, ax = plt.subplots(figsize=(4.3, 3.4))
+ax.pie(
+    [comm_time, local_time],
+    labels=[f"Measured communication\n({comm_pct:.1f}%)", f"Local/update remainder\n({local_pct:.1f}%)"],
+    colors=["#d62728", "#2ca02c"],
+    startangle=90,
+    wedgeprops={"edgecolor": "white", "linewidth": 1.5},
+)
+ax.set_title(f"Dardel two-node weak $P{{=}}16$\nPR-time split ({pr_time:.4f} s total)")
+fig.tight_layout()
+fig.savefig(OUT / "fig_breakdown_pie.png", dpi=300)
+plt.close(fig)
+
+
+# OpenMP plots are CSV-backed on the two measured multi-core systems.
+omp_paths = [("openmp_scaling_kth.csv", "KTH", "#d62728", "s-"), ("openmp_scaling_dardel.csv", "Dardel", "#1f77b4", "o-")]
 fig, ax = plt.subplots(figsize=(5.0, 3.4))
-def trimmed(xs, ys):
-    return [(x, y) for x, y in zip(xs, ys) if y is not None]
-xc, yc = zip(*trimmed(omp_T, omp_colab))
-ax.plot(xc, yc, "^--", color="#9467bd", lw=2, label="Colab (2 vCPU)")
-ax.plot(omp_T, omp_kth,    "s-",  color="#d62728", lw=2, label="KTH (112 cores)")
-ax.plot(omp_T, omp_dardel, "o-",  color="#1f77b4", lw=2, label="Dardel (128 cores)")
-ax.set_xscale("log", base=2)
-ax.set_xticks(omp_T); ax.set_xticklabels(omp_T)
-ax.set_xlabel("OpenMP threads $T$"); ax.set_ylabel("Speedup vs.\\ $T{=}1$")
-ax.set_title("OpenMP strong scaling on synthetic\\_100k\\_1m")
-# Annotate peaks
-ax.annotate("KTH peak\n4.48$\\times$", xy=(32, 4.48), xytext=(20, 5.2),
-    arrowprops=dict(arrowstyle="->", color="#d62728", lw=0.8), color="#d62728", fontsize=9)
-ax.annotate("Dardel peak\n4.32$\\times$", xy=(16, 4.32), xytext=(6, 4.8),
-    arrowprops=dict(arrowstyle="->", color="#1f77b4", lw=0.8), color="#1f77b4", fontsize=9)
-ax.annotate("NUMA dip", xy=(16, 2.79), xytext=(20, 2.0),
-    arrowprops=dict(arrowstyle="->", color="#d62728", lw=0.8, alpha=0.6),
-    color="#d62728", fontsize=8, alpha=0.8)
-ax.legend(loc="lower left"); ax.grid(True, which="both", alpha=0.3); ax.set_ylim(0, 6)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_omp_speedup.png", dpi=300); plt.close()
+threads: list[int] | None = None
+for path, label, color, marker in omp_paths:
+    rows = read_rows(path, dataset="synthetic_100k_1m")
+    ordered = sorted(rows, key=lambda row: int(row["threads"]))
+    platform_threads = [int(row["threads"]) for row in ordered]
+    platform_speedup = [float(row["speedup_vs_T1"]) for row in ordered]
+    if threads is None:
+        threads = platform_threads
+    x = list(range(len(platform_threads)))
+    ax.plot(x, platform_speedup, marker, color=color, lw=2, label=label)
+assert threads is not None
+categorical_axis(ax, threads, "OpenMP threads $T$")
+ax.set_ylabel("Speedup vs. $T{=}1$")
+ax.set_title("OpenMP strong scaling on synthetic_100k_1m")
+ax.legend(loc="upper left")
+ax.grid(True, axis="y", alpha=0.3)
+fig.tight_layout()
+fig.savefig(OUT / "fig_omp_speedup.png", dpi=300)
+plt.close(fig)
 
-# ---------------- FIG 5: MPI Weak-Scaling Efficiency ----------------
+
+# Cross-platform MPI weak-scaling efficiency.
+weak_ranks, dardel_eff = rank_series(dardel_weak, "weak_efficiency")
+_, cluster_eff = rank_series(cluster_weak, "weak_efficiency")
 fig, ax = plt.subplots(figsize=(5.0, 3.4))
-ax.plot(weak_ranks, weak_eff_dardel,  "o-", color="#1f77b4", lw=2, label="Dardel")
-ax.plot(weak_ranks, weak_eff_cluster, "s-", color="#d62728", lw=2, label="KTH cluster")
+x = categorical_axis(ax, weak_ranks, "MPI ranks $P$ (125k edges per rank)")
+ax.plot(x, dardel_eff, "o-", color="#1f77b4", lw=2, label="Dardel two-node")
+ax.plot(x, cluster_eff, "s-", color="#d62728", lw=2, label="KTH cluster")
 ax.axhline(1.0, ls="--", color="gray", alpha=0.5, label="ideal")
-ax.set_xscale("log", base=2); ax.set_yscale("log")
-ax.set_xticks(weak_ranks); ax.set_xticklabels(weak_ranks)
-ax.set_xlabel("MPI ranks $P$ (125k edges per rank)")
 ax.set_ylabel("Weak-scaling efficiency")
 ax.set_title("MPI weak scaling")
-ax.legend(loc="lower left"); ax.grid(True, which="both", alpha=0.3)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_mpi_weak.png", dpi=300); plt.close()
+ax.legend(loc="upper right")
+ax.grid(True, axis="y", alpha=0.3)
+fig.tight_layout()
+fig.savefig(OUT / "fig_mpi_weak.png", dpi=300)
+plt.close(fig)
 
-print(f"Wrote 5 figures to {OUT}/")
-EOFcat << 'EOF' > scripts/make_paper_figures.py
-#!/usr/bin/env python3
-"""
-Generate publication-quality figures for the DD2356 PageRank report.
-Outputs to results/figures/paper/ as PNG at 300 DPI.
-Run: python3 scripts/make_paper_figures.py
-"""
-import os
-import matplotlib.pyplot as plt
-import numpy as np
-
-OUT = "results/figures/paper"
-os.makedirs(OUT, exist_ok=True)
-plt.rcParams.update({
-    "font.size": 11, "axes.labelsize": 12, "legend.fontsize": 10,
-    "axes.spines.top": False, "axes.spines.right": False,
-})
-
-# ---------------- DATA (from report tables, no CSV needed) ----------------
-mpi_ranks = [1, 2, 4, 8, 16]
-
-# Table: MPI strong scaling on synthetic_100k_1m
-speedup_dardel  = [1.000, 0.0042, 0.0050, 0.0036, 0.0022]
-speedup_cluster = [1.000, 1.543,  2.138,  1.705,  1.166]
-comm_dardel     = [0.013, 0.996,  0.998,  0.999,  1.000]
-comm_cluster    = [0.014, 0.177,  0.436,  0.751,  0.848]
-
-# Table: MPI weak scaling efficiency
-weak_ranks = [1, 2, 4, 8, 16]
-weak_eff_dardel  = [1.000, 0.0019, 0.0018, 0.0004, 0.0002]
-weak_eff_cluster = [1.000, 0.619,  0.439,  0.286,  0.136]
-
-# Table: OpenMP three-system on synthetic_100k_1m
-omp_T = [1, 2, 4, 8, 16, 32, 64]
-omp_colab  = [1.00, 0.84, 1.27, None, None, None, None]  # only 1,2,4
-omp_kth    = [1.00, 1.48, 2.46, 3.57, 2.79, 4.48, 1.83]
-omp_dardel = [1.00, 1.79, 2.90, 3.75, 4.32, 3.80, 2.59]
-
-# Pie: Dardel weak P=16 breakdown (PR time = 23.83 s; Allgatherv = 21.81 s)
-# Remaining 2.02 s = Allreduce + local compute (approx 50/50 split typical)
-pie_labels = ["MPI\\_Allgatherv\n(91.5\\%)", "Allreduce\n(4\\%)", "Local compute\n(4.5\\%)"]
-pie_sizes  = [91.5, 4.0, 4.5]
-pie_colors = ["#d62728", "#ff7f0e", "#2ca02c"]
-
-# ---------------- FIG 1: Cross-platform MPI Speedup ----------------
-fig, ax = plt.subplots(figsize=(5.0, 3.4))
-ideal = mpi_ranks
-ax.plot(mpi_ranks, ideal, "--", color="gray", lw=1, label="ideal", alpha=0.6)
-ax.plot(mpi_ranks, speedup_dardel,  "o-", color="#1f77b4", lw=2, label="Dardel (Cray MPICH)")
-ax.plot(mpi_ranks, speedup_cluster, "s-", color="#d62728", lw=2, label="KTH cluster (OpenMPI)")
-ax.set_xscale("log", base=2); ax.set_yscale("log")
-ax.set_xticks(mpi_ranks); ax.set_xticklabels(mpi_ranks)
-ax.set_xlabel("MPI ranks $P$"); ax.set_ylabel("Speedup vs.\\ $P{=}1$")
-ax.set_title("MPI strong scaling on synthetic\\_100k\\_1m")
-ax.legend(loc="lower right"); ax.grid(True, which="both", alpha=0.3)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_mpi_speedup.png", dpi=300); plt.close()
-
-# ---------------- FIG 2: Cross-platform MPI Comm Fraction ----------------
-fig, ax = plt.subplots(figsize=(5.0, 3.4))
-ax.plot(mpi_ranks, [c*100 for c in comm_dardel],  "o-", color="#1f77b4", lw=2, label="Dardel")
-ax.plot(mpi_ranks, [c*100 for c in comm_cluster], "s-", color="#d62728", lw=2, label="KTH cluster")
-ax.set_xscale("log", base=2)
-ax.set_xticks(mpi_ranks); ax.set_xticklabels(mpi_ranks)
-ax.set_xlabel("MPI ranks $P$"); ax.set_ylabel("Communication fraction (\\%)")
-ax.set_title("Per-iteration communication overhead")
-ax.axhline(99, ls=":", color="gray", alpha=0.5)
-ax.legend(loc="center right"); ax.grid(True, alpha=0.3); ax.set_ylim(0, 105)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_mpi_comm.png", dpi=300); plt.close()
-
-# ---------------- FIG 3: Allgatherv pie (worst-case breakdown) ----------------
-fig, ax = plt.subplots(figsize=(4.0, 3.4))
-wedges, texts, autotexts = ax.pie(pie_sizes, labels=pie_labels, colors=pie_colors,
-    autopct="", startangle=90, wedgeprops={"edgecolor": "white", "linewidth": 1.5})
-for t in texts: t.set_fontsize(10)
-ax.set_title("Dardel weak $P{=}16$\nPR-time breakdown (23.8\\,s total)")
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_breakdown_pie.png", dpi=300); plt.close()
-
-# ---------------- FIG 4: OpenMP three-platform speedup ----------------
-fig, ax = plt.subplots(figsize=(5.0, 3.4))
-def trimmed(xs, ys):
-    return [(x, y) for x, y in zip(xs, ys) if y is not None]
-xc, yc = zip(*trimmed(omp_T, omp_colab))
-ax.plot(xc, yc, "^--", color="#9467bd", lw=2, label="Colab (2 vCPU)")
-ax.plot(omp_T, omp_kth,    "s-",  color="#d62728", lw=2, label="KTH (112 cores)")
-ax.plot(omp_T, omp_dardel, "o-",  color="#1f77b4", lw=2, label="Dardel (128 cores)")
-ax.set_xscale("log", base=2)
-ax.set_xticks(omp_T); ax.set_xticklabels(omp_T)
-ax.set_xlabel("OpenMP threads $T$"); ax.set_ylabel("Speedup vs.\\ $T{=}1$")
-ax.set_title("OpenMP strong scaling on synthetic\\_100k\\_1m")
-# Annotate peaks
-ax.annotate("KTH peak\n4.48$\\times$", xy=(32, 4.48), xytext=(20, 5.2),
-    arrowprops=dict(arrowstyle="->", color="#d62728", lw=0.8), color="#d62728", fontsize=9)
-ax.annotate("Dardel peak\n4.32$\\times$", xy=(16, 4.32), xytext=(6, 4.8),
-    arrowprops=dict(arrowstyle="->", color="#1f77b4", lw=0.8), color="#1f77b4", fontsize=9)
-ax.annotate("NUMA dip", xy=(16, 2.79), xytext=(20, 2.0),
-    arrowprops=dict(arrowstyle="->", color="#d62728", lw=0.8, alpha=0.6),
-    color="#d62728", fontsize=8, alpha=0.8)
-ax.legend(loc="lower left"); ax.grid(True, which="both", alpha=0.3); ax.set_ylim(0, 6)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_omp_speedup.png", dpi=300); plt.close()
-
-# ---------------- FIG 5: MPI Weak-Scaling Efficiency ----------------
-fig, ax = plt.subplots(figsize=(5.0, 3.4))
-ax.plot(weak_ranks, weak_eff_dardel,  "o-", color="#1f77b4", lw=2, label="Dardel")
-ax.plot(weak_ranks, weak_eff_cluster, "s-", color="#d62728", lw=2, label="KTH cluster")
-ax.axhline(1.0, ls="--", color="gray", alpha=0.5, label="ideal")
-ax.set_xscale("log", base=2); ax.set_yscale("log")
-ax.set_xticks(weak_ranks); ax.set_xticklabels(weak_ranks)
-ax.set_xlabel("MPI ranks $P$ (125k edges per rank)")
-ax.set_ylabel("Weak-scaling efficiency")
-ax.set_title("MPI weak scaling")
-ax.legend(loc="lower left"); ax.grid(True, which="both", alpha=0.3)
-plt.tight_layout(); plt.savefig(f"{OUT}/fig_mpi_weak.png", dpi=300); plt.close()
-
-print(f"Wrote 5 figures to {OUT}/")
+print(f"Wrote five CSV-backed figures to {OUT}")
