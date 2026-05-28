@@ -1,0 +1,16 @@
+profile,dataset,mode,scaling_mode,ranks,step_nodes,ranks_per_node,node_hosts
+dardel_multinode_synthetic_100k_1m_directed,synthetic_100k_1m,directed,strong,1,1,1,nid001120
+dardel_multinode_synthetic_100k_1m_directed,synthetic_100k_1m,directed,strong,2,2,1,nid001120;nid001121
+dardel_multinode_synthetic_100k_1m_directed,synthetic_100k_1m,directed,strong,4,2,2,nid001120;nid001121
+dardel_multinode_synthetic_100k_1m_directed,synthetic_100k_1m,directed,strong,8,2,4,nid001120;nid001121
+dardel_multinode_synthetic_100k_1m_directed,synthetic_100k_1m,directed,strong,16,2,8,nid001120;nid001121
+dardel_multinode_course_polblogs_directed,polblogs,directed,strong,1,1,1,nid001120
+dardel_multinode_course_polblogs_directed,polblogs,directed,strong,2,2,1,nid001120;nid001121
+dardel_multinode_course_polblogs_directed,polblogs,directed,strong,4,2,2,nid001120;nid001121
+dardel_multinode_course_polblogs_directed,polblogs,directed,strong,8,2,4,nid001120;nid001121
+dardel_multinode_course_polblogs_directed,polblogs,directed,strong,16,2,8,nid001120;nid001121
+dardel_multinode_directed,weak_1rank_12500_125000,directed,weak,1,1,1,nid001120
+dardel_multinode_directed,weak_2rank_25000_250000,directed,weak,2,2,1,nid001120;nid001121
+dardel_multinode_directed,weak_4rank_50000_500000,directed,weak,4,2,2,nid001120;nid001121
+dardel_multinode_directed,weak_8rank_100000_1000000,directed,weak,8,2,4,nid001120;nid001121
+dardel_multinode_directed,weak_16rank_200000_2000000,directed,weak,16,2,8,nid001120;nid001121

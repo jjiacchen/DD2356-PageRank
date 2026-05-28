@@ -18,6 +18,8 @@ REPEAT="${REPEAT:-1}"
 MPI_RUNNER="${MPI_RUNNER:-mpirun}"
 MPI_NP_FLAG="${MPI_NP_FLAG:--np}"
 MPI_FLAGS="${MPI_FLAGS:-}"
+MPI_PLACEMENT="${MPI_PLACEMENT:-default}"
+PLACEMENT_CSV="${PLACEMENT_CSV:-}"
 TOL="${TOL:-1e-6}"
 SCALING_MODE="${SCALING_MODE:-strong}"
 OUTPUT_PREFIX="${OUTPUT_PREFIX:-}"
@@ -37,6 +39,61 @@ RAW_CSV="results/mpi_scaling_${RUN_ID}_raw.csv"
 SUMMARY_CSV="results/mpi_scaling_${RUN_ID}.csv"
 SERIAL_LOG="results/serial_${RUN_ID}.log"
 
+configure_step_placement() {
+    local np="$1"
+    local dataset="$2"
+    local scaling_mode="$3"
+    local probe_output observed_nodes
+
+    MPI_STEP_ARGS=()
+    STEP_NODES="unspecified"
+    RANKS_PER_NODE="unspecified"
+    NODE_HOSTS="not_recorded"
+
+    case "$MPI_PLACEMENT" in
+        default)
+            return
+            ;;
+        dardel_two_node_balanced)
+            if [ "$np" -eq 1 ]; then
+                STEP_NODES=1
+                RANKS_PER_NODE=1
+            elif [ $((np % 2)) -eq 0 ]; then
+                STEP_NODES=2
+                RANKS_PER_NODE=$((np / 2))
+            else
+                echo "Placement mode $MPI_PLACEMENT requires rank count 1 or an even rank count; got $np." >&2
+                exit 1
+            fi
+            MPI_STEP_ARGS=(
+                -N "$STEP_NODES"
+                --ntasks-per-node="$RANKS_PER_NODE"
+                --distribution=block:block
+                --hint=nomultithread
+            )
+            # Probe placement separately so hostname collection is excluded from timings.
+            # shellcheck disable=SC2086
+            probe_output=$("$MPI_RUNNER" $MPI_FLAGS "${MPI_STEP_ARGS[@]}" "$MPI_NP_FLAG" "$np" hostname)
+            NODE_HOSTS=$(printf "%s\n" "$probe_output" | awk 'NF' | sort -u | paste -sd';' -)
+            observed_nodes=$(printf "%s\n" "$probe_output" | awk 'NF' | sort -u | wc -l | tr -d ' ')
+            if [ "$observed_nodes" -ne "$STEP_NODES" ]; then
+                echo "Placement probe failed for np=$np: expected $STEP_NODES nodes, observed $observed_nodes ($NODE_HOSTS)." >&2
+                exit 1
+            fi
+            if [ -n "$PLACEMENT_CSV" ]; then
+                if [ ! -s "$PLACEMENT_CSV" ]; then
+                    echo "profile,dataset,mode,scaling_mode,ranks,step_nodes,ranks_per_node,node_hosts" > "$PLACEMENT_CSV"
+                fi
+                echo "$RUN_ID,$dataset,$MODE,$scaling_mode,$np,$STEP_NODES,$RANKS_PER_NODE,$NODE_HOSTS" >> "$PLACEMENT_CSV"
+            fi
+            ;;
+        *)
+            echo "Unknown MPI_PLACEMENT mode: $MPI_PLACEMENT" >&2
+            exit 1
+            ;;
+    esac
+}
+
 echo "========================================"
 echo " DD2356 MPI PageRank - scaling profile"
 echo "========================================"
@@ -45,6 +102,7 @@ echo "Ranks        : $RANKS"
 echo "Repeat       : $REPEAT"
 echo "Scaling mode : $SCALING_MODE"
 echo "MPI runner   : $MPI_RUNNER $MPI_FLAGS $MPI_NP_FLAG <np>"
+echo "Placement    : $MPI_PLACEMENT"
 echo "Tolerance    : $TOL"
 echo ""
 
@@ -61,12 +119,13 @@ echo ""
 echo "[reference] generating serial golden output"
 "$SERIAL_BIN" "$GRAPH" "$MODE" > "$SERIAL_LOG"
 
-echo "dataset,mode,scaling_mode,ranks,repeat,pr_time_s,total_time_s,comm_time_s,dangling_reduce_s,diff_reduce_s,allgatherv_s,iterations,max_error,status,work_nodes_min,work_nodes_avg,work_nodes_max,work_inedges_min,work_inedges_avg,work_inedges_max,work_imbalance,speedup,parallel_efficiency" > "$RAW_CSV"
+echo "dataset,mode,scaling_mode,ranks,repeat,pr_time_s,total_time_s,comm_time_s,dangling_reduce_s,diff_reduce_s,allgatherv_s,iterations,max_error,status,work_nodes_min,work_nodes_avg,work_nodes_max,work_inedges_min,work_inedges_avg,work_inedges_max,work_imbalance,speedup,parallel_efficiency,step_nodes,ranks_per_node,node_hosts" > "$RAW_CSV"
 
 BASE_PR_TIME=""
 
 for NP in $RANKS; do
     NP_TIMES=()
+    configure_step_placement "$NP" "$BASE_NAME" "$SCALING_MODE"
 
     for REP in $(seq 1 "$REPEAT"); do
         MPI_LOG="results/mpi_${RUN_ID}_np${NP}_r${REP}.log"
@@ -75,8 +134,13 @@ for NP in $RANKS; do
 
         echo ""
         echo "[run] np=$NP repeat=$REP/$REPEAT"
-        # shellcheck disable=SC2086
-        "$MPI_RUNNER" $MPI_FLAGS "$MPI_NP_FLAG" "$NP" "$MPI_BIN" "$GRAPH" "$MODE" 0.85 1e-10 1000 "$MPI_OUT" > "$MPI_LOG"
+        if [ "$MPI_PLACEMENT" = "default" ]; then
+            # shellcheck disable=SC2086
+            "$MPI_RUNNER" $MPI_FLAGS "$MPI_NP_FLAG" "$NP" "$MPI_BIN" "$GRAPH" "$MODE" 0.85 1e-10 1000 "$MPI_OUT" > "$MPI_LOG"
+        else
+            # shellcheck disable=SC2086
+            "$MPI_RUNNER" $MPI_FLAGS "${MPI_STEP_ARGS[@]}" "$MPI_NP_FLAG" "$NP" "$MPI_BIN" "$GRAPH" "$MODE" 0.85 1e-10 1000 "$MPI_OUT" > "$MPI_LOG"
+        fi
 
         if "$VERIFY_BIN" pagerank_serial_output.txt "$MPI_OUT" "$TOL" > "$VERIFY_LOG"; then
             STATUS="PASS"
@@ -84,11 +148,14 @@ for NP in $RANKS; do
             STATUS="FAIL"
         fi
 
-        ROW=$("$PYTHON" - "$MPI_LOG" "$VERIFY_LOG" "$BASE_PR_TIME" "$NP" "$BASE_NAME" "$MODE" "$SCALING_MODE" "$REP" "$STATUS" <<'PYEOF'
+        ROW=$("$PYTHON" - "$MPI_LOG" "$VERIFY_LOG" "$BASE_PR_TIME" "$NP" "$BASE_NAME" "$MODE" "$SCALING_MODE" "$REP" "$STATUS" "$STEP_NODES" "$RANKS_PER_NODE" "$NODE_HOSTS" <<'PYEOF'
 import re
 import sys
 
-mpi_log, verify_log, base_pr, np_s, dataset, mode, scaling_mode, rep, status = sys.argv[1:]
+(
+    mpi_log, verify_log, base_pr, np_s, dataset, mode, scaling_mode, rep,
+    status, step_nodes, ranks_per_node, node_hosts,
+) = sys.argv[1:]
 np = int(np_s)
 text = open(mpi_log, encoding="utf-8", errors="replace").read()
 vtext = open(verify_log, encoding="utf-8", errors="replace").read()
@@ -127,6 +194,7 @@ print(",".join([
     node_vals[0], node_vals[1], node_vals[2],
     edge_vals[0], edge_vals[1], edge_vals[2], edge_vals[3],
     f"{speedup:.9f}", f"{eff:.9f}",
+    step_nodes, ranks_per_node, node_hosts,
 ]))
 PYEOF
 )
@@ -186,10 +254,11 @@ fieldnames = [
     "work_nodes_min", "work_nodes_avg", "work_nodes_max",
     "work_inedges_min", "work_inedges_avg", "work_inedges_max",
     "work_imbalance", "speedup", "parallel_efficiency",
+    "step_nodes", "ranks_per_node", "node_hosts",
 ]
 
 with open(summary_csv, "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()
     for key in sorted(groups, key=lambda k: k[3]):
         dataset, mode, scaling_mode, ranks = key
@@ -233,6 +302,9 @@ with open(summary_csv, "w", newline="") as f:
             "work_imbalance": f"{statistics.mean(float(r['work_imbalance']) for r in rs):.6f}",
             "speedup": f"{speedup:.9f}",
             "parallel_efficiency": f"{eff:.9f}",
+            "step_nodes": rs[0]["step_nodes"],
+            "ranks_per_node": rs[0]["ranks_per_node"],
+            "node_hosts": rs[0]["node_hosts"],
         })
 PYEOF
 

@@ -1,0 +1,16 @@
+implementation,variant,dataset,mode,repeat,nodes,edges,iterations,pr_time_s,total_time_s,target_setup_time_s,kernel_time_s,target_teardown_time_s,device_count,target_device_id,executed_on_device,max_error,status
+serial,serial,synthetic_100k_1m,directed,1,100000,1000000,19,0.033532,0.033532,0,0,0,0,-1,N/A,0,REFERENCE
+serial,serial,synthetic_100k_1m,directed,2,100000,1000000,19,0.035528,0.035528,0,0,0,0,-1,N/A,0,REFERENCE
+serial,serial,synthetic_100k_1m,directed,3,100000,1000000,19,0.039263,0.039263,0,0,0,0,-1,N/A,0,REFERENCE
+serial,serial,synthetic_100k_1m,directed,4,100000,1000000,19,0.039398,0.039398,0,0,0,0,-1,N/A,0,REFERENCE
+serial,serial,synthetic_100k_1m,directed,5,100000,1000000,19,0.034539,0.034539,0,0,0,0,-1,N/A,0,REFERENCE
+gpu,naive,synthetic_100k_1m,directed,1,100000,1000000,19,0.108595,0.306592,0.000000,0.108595,0.000000,1,0,YES,1.016440e-20,PASS
+gpu,naive,synthetic_100k_1m,directed,2,100000,1000000,19,0.051471,0.248334,0.000000,0.051471,0.000000,1,0,YES,1.016440e-20,PASS
+gpu,naive,synthetic_100k_1m,directed,3,100000,1000000,19,0.045720,0.241892,0.000000,0.045720,0.000000,1,0,YES,1.016440e-20,PASS
+gpu,naive,synthetic_100k_1m,directed,4,100000,1000000,19,0.046791,0.241236,0.000000,0.046791,0.000000,1,0,YES,1.016440e-20,PASS
+gpu,naive,synthetic_100k_1m,directed,5,100000,1000000,19,0.046569,0.248702,0.000000,0.046569,0.000000,1,0,YES,1.016440e-20,PASS
+gpu,persistent,synthetic_100k_1m,directed,1,100000,1000000,19,0.033922,0.237646,0.000774,0.032798,0.000350,1,0,YES,1.016440e-20,PASS
+gpu,persistent,synthetic_100k_1m,directed,2,100000,1000000,19,0.032550,0.227902,0.000815,0.031399,0.000336,1,0,YES,1.016440e-20,PASS
+gpu,persistent,synthetic_100k_1m,directed,3,100000,1000000,19,0.032357,0.228054,0.000739,0.031248,0.000369,1,0,YES,1.016440e-20,PASS
+gpu,persistent,synthetic_100k_1m,directed,4,100000,1000000,19,0.032057,0.221696,0.000862,0.030851,0.000344,1,0,YES,1.016440e-20,PASS
+gpu,persistent,synthetic_100k_1m,directed,5,100000,1000000,19,0.037532,0.238596,0.000853,0.035997,0.000681,1,0,YES,1.016440e-20,PASS

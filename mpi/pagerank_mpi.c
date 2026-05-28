@@ -9,7 +9,6 @@
 #include <math.h>
 #include <mpi.h>
 
-#define MAX_NODES 100000
 #define NAME_LEN 64
 #define SHT_SIZE (1 << 17)
 
@@ -20,10 +19,41 @@ typedef struct StrEntry {
 } StrEntry;
 
 static StrEntry *sht[SHT_SIZE];
-static StrEntry sht_pool[MAX_NODES];
-static int sht_used = 0;
 
-static void sht_clear(void) { memset(sht, 0, sizeof(sht)); sht_used = 0; }
+static void die_alloc(const char *what) {
+    fprintf(stderr, "allocation failed: %s\n", what);
+    exit(1);
+}
+
+static void *xmalloc(size_t n) {
+    void *p = malloc(n);
+    if (!p) die_alloc("malloc");
+    return p;
+}
+
+static void *xcalloc(size_t count, size_t size) {
+    void *p = calloc(count, size);
+    if (!p) die_alloc("calloc");
+    return p;
+}
+
+static void *xrealloc(void *ptr, size_t n) {
+    void *p = realloc(ptr, n);
+    if (!p) die_alloc("realloc");
+    return p;
+}
+
+static void sht_clear(void) {
+    for (int i = 0; i < SHT_SIZE; i++) {
+        StrEntry *e = sht[i];
+        while (e) {
+            StrEntry *next = e->next;
+            free(e);
+            e = next;
+        }
+        sht[i] = NULL;
+    }
+}
 static unsigned str_hash(const char *s) {
     unsigned h = 5381;
     while (*s) h = ((h << 5) + h) ^ (unsigned char)*s++;
@@ -32,7 +62,7 @@ static unsigned str_hash(const char *s) {
 static int sht_get_or_insert(const char *key, int *next_id) {
     unsigned h = str_hash(key);
     for (StrEntry *e = sht[h]; e; e = e->next) if (strcmp(e->key, key) == 0) return e->val;
-    StrEntry *e = &sht_pool[sht_used++];
+    StrEntry *e = xmalloc(sizeof(*e));
     strncpy(e->key, key, NAME_LEN - 1);
     e->key[NAME_LEN - 1] = '\0';
     e->val = (*next_id)++;
@@ -45,7 +75,7 @@ typedef struct { int *data; int size; int cap; } IntVec;
 static void iv_push(IntVec *v, int x) {
     if (v->size == v->cap) {
         v->cap = v->cap ? v->cap * 2 : 16;
-        v->data = realloc(v->data, v->cap * sizeof(int));
+        v->data = xrealloc(v->data, (size_t)v->cap * sizeof(int));
     }
     v->data[v->size++] = x;
 }
@@ -126,14 +156,14 @@ static CSRGraph *load_csv_root(const char *filename, int directed) {
 
     int N = next_id;
     int M = srcs.size;
-    CSRGraph *g = malloc(sizeof(CSRGraph));
+    CSRGraph *g = xmalloc(sizeof(CSRGraph));
     g->n_nodes = N;
     g->n_edges = M;
-    g->row_ptr = calloc(N + 1, sizeof(int));
-    g->out_degree = calloc(N, sizeof(int));
-    g->inv_out_degree = calloc(N, sizeof(double));
-    g->col_idx = malloc((M > 0 ? M : 1) * sizeof(int));
-    g->names = malloc(N * NAME_LEN);
+    g->row_ptr = xcalloc((size_t)N + 1, sizeof(int));
+    g->out_degree = xcalloc((size_t)N, sizeof(int));
+    g->inv_out_degree = xcalloc((size_t)N, sizeof(double));
+    g->col_idx = xmalloc((size_t)(M > 0 ? M : 1) * sizeof(int));
+    g->names = xmalloc((size_t)N * sizeof(*g->names));
 
     for (int s = 0; s < SHT_SIZE; s++) {
         for (StrEntry *e = sht[s]; e; e = e->next) {
@@ -142,7 +172,7 @@ static CSRGraph *load_csv_root(const char *filename, int directed) {
         }
     }
 
-    int *in_cnt = calloc(N, sizeof(int));
+    int *in_cnt = xcalloc((size_t)N, sizeof(int));
     for (int i = 0; i < M; i++) {
         g->out_degree[srcs.data[i]]++;
         in_cnt[dsts.data[i]]++;
@@ -150,7 +180,7 @@ static CSRGraph *load_csv_root(const char *filename, int directed) {
     for (int i = 0; i < N; i++) g->row_ptr[i + 1] = g->row_ptr[i] + in_cnt[i];
     for (int i = 0; i < N; i++) g->inv_out_degree[i] = g->out_degree[i] ? 1.0 / (double) g->out_degree[i] : 0.0;
 
-    int *pos = calloc(N, sizeof(int));
+    int *pos = xcalloc((size_t)N, sizeof(int));
     for (int i = 0; i < M; i++) {
         int d = dsts.data[i];
         g->col_idx[g->row_ptr[d] + pos[d]++] = srcs.data[i];
@@ -160,6 +190,7 @@ static CSRGraph *load_csv_root(const char *filename, int directed) {
     free(dsts.data);
     free(in_cnt);
     free(pos);
+    sht_clear();
     return g;
 }
 
@@ -170,14 +201,14 @@ static void broadcast_graph(CSRGraph **g_ptr, int rank, MPI_Comm comm) {
     MPI_Bcast(&N, 1, MPI_INT, 0, comm);
     MPI_Bcast(&M, 1, MPI_INT, 0, comm);
     if (rank != 0) {
-        g = malloc(sizeof(CSRGraph));
+        g = xmalloc(sizeof(CSRGraph));
         g->n_nodes = N;
         g->n_edges = M;
-        g->row_ptr = malloc((N + 1) * sizeof(int));
-        g->out_degree = malloc(N * sizeof(int));
-        g->inv_out_degree = malloc(N * sizeof(double));
-        g->col_idx = malloc((M > 0 ? M : 1) * sizeof(int));
-        g->names = malloc(N * NAME_LEN);
+        g->row_ptr = xmalloc(((size_t)N + 1) * sizeof(int));
+        g->out_degree = xmalloc((size_t)N * sizeof(int));
+        g->inv_out_degree = xmalloc((size_t)N * sizeof(double));
+        g->col_idx = xmalloc((size_t)(M > 0 ? M : 1) * sizeof(int));
+        g->names = xmalloc((size_t)N * sizeof(*g->names));
     }
     MPI_Bcast(g->row_ptr, N + 1, MPI_INT, 0, comm);
     MPI_Bcast(g->out_degree, N, MPI_INT, 0, comm);
@@ -219,7 +250,7 @@ static int rank_pair_desc(const void *a, const void *b) {
 
 static void print_top_k(const CSRGraph *g, const double *pr, int k) {
     if (k > g->n_nodes) k = g->n_nodes;
-    RankPair *pairs = malloc(g->n_nodes * sizeof(RankPair));
+    RankPair *pairs = malloc((size_t)g->n_nodes * sizeof(RankPair));
     if (!pairs) return;
     for (int i = 0; i < g->n_nodes; i++) {
         pairs[i].idx = i;
@@ -322,10 +353,10 @@ int main(int argc, char **argv) {
                min_inedges, avg_inedges, max_inedges, imbalance);
     }
 
-    double *pr = malloc(N * sizeof(double));
-    double *pr_new = malloc(N * sizeof(double));
-    int *recvcounts = malloc(size * sizeof(int));
-    int *displs = malloc(size * sizeof(int));
+    double *pr = malloc((size_t)N * sizeof(double));
+    double *pr_new = malloc((size_t)N * sizeof(double));
+    int *recvcounts = malloc((size_t)size * sizeof(int));
+    int *displs = malloc((size_t)size * sizeof(int));
     if (!pr || !pr_new || !recvcounts || !displs) {
         fprintf(stderr, "Rank %d: allocation failed\n", rank);
         MPI_Abort(MPI_COMM_WORLD, 2);

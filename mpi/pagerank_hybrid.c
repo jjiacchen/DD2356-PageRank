@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 #include <mpi.h>
 #include <omp.h>
 
-#define MAX_NODES 100000
 #define NAME_LEN 64
 #define SHT_SIZE (1 << 17)
 
@@ -21,10 +21,41 @@ typedef struct StrEntry {
 } StrEntry;
 
 static StrEntry *sht[SHT_SIZE];
-static StrEntry sht_pool[MAX_NODES];
-static int sht_used = 0;
 
-static void sht_clear(void) { memset(sht, 0, sizeof(sht)); sht_used = 0; }
+static void die_alloc(const char *what) {
+    fprintf(stderr, "allocation failed: %s\n", what);
+    exit(1);
+}
+
+static void *xmalloc(size_t n) {
+    void *p = malloc(n);
+    if (!p) die_alloc("malloc");
+    return p;
+}
+
+static void *xcalloc(size_t count, size_t size) {
+    void *p = calloc(count, size);
+    if (!p) die_alloc("calloc");
+    return p;
+}
+
+static void *xrealloc(void *ptr, size_t n) {
+    void *p = realloc(ptr, n);
+    if (!p) die_alloc("realloc");
+    return p;
+}
+
+static void sht_clear(void) {
+    for (int i = 0; i < SHT_SIZE; i++) {
+        StrEntry *e = sht[i];
+        while (e) {
+            StrEntry *next = e->next;
+            free(e);
+            e = next;
+        }
+        sht[i] = NULL;
+    }
+}
 static unsigned str_hash(const char *s) {
     unsigned h = 5381;
     while (*s) h = ((h << 5) + h) ^ (unsigned char) *s++;
@@ -33,7 +64,7 @@ static unsigned str_hash(const char *s) {
 static int sht_get_or_insert(const char *key, int *next_id) {
     unsigned h = str_hash(key);
     for (StrEntry *e = sht[h]; e; e = e->next) if (strcmp(e->key, key) == 0) return e->val;
-    StrEntry *e = &sht_pool[sht_used++];
+    StrEntry *e = xmalloc(sizeof(*e));
     strncpy(e->key, key, NAME_LEN - 1);
     e->key[NAME_LEN - 1] = '\0';
     e->val = (*next_id)++;
@@ -46,7 +77,7 @@ typedef struct { int *data; int size; int cap; } IntVec;
 static void iv_push(IntVec *v, int x) {
     if (v->size == v->cap) {
         v->cap = v->cap ? v->cap * 2 : 16;
-        v->data = realloc(v->data, v->cap * sizeof(int));
+        v->data = xrealloc(v->data, (size_t)v->cap * sizeof(int));
     }
     v->data[v->size++] = x;
 }
@@ -64,6 +95,7 @@ typedef struct {
     double dangling_reduce;
     double diff_reduce;
     double allgatherv;
+    double update_kernel;
 } MpiTiming;
 
 typedef struct {
@@ -122,14 +154,14 @@ static CSRGraph *load_csv_root(const char *filename, int directed) {
     fclose(fp);
     int N = next_id, M = srcs.size;
 
-    CSRGraph *g = malloc(sizeof(CSRGraph));
+    CSRGraph *g = xmalloc(sizeof(CSRGraph));
     g->n_nodes = N;
     g->n_edges = M;
-    g->row_ptr = calloc(N + 1, sizeof(int));
-    g->out_degree = calloc(N, sizeof(int));
-    g->inv_out_degree = calloc(N, sizeof(double));
-    g->col_idx = malloc((M > 0 ? M : 1) * sizeof(int));
-    g->names = malloc(N * NAME_LEN);
+    g->row_ptr = xcalloc((size_t)N + 1, sizeof(int));
+    g->out_degree = xcalloc((size_t)N, sizeof(int));
+    g->inv_out_degree = xcalloc((size_t)N, sizeof(double));
+    g->col_idx = xmalloc((size_t)(M > 0 ? M : 1) * sizeof(int));
+    g->names = xmalloc((size_t)N * sizeof(*g->names));
 
     for (int s = 0; s < SHT_SIZE; s++) {
         for (StrEntry *e = sht[s]; e; e = e->next) {
@@ -138,19 +170,20 @@ static CSRGraph *load_csv_root(const char *filename, int directed) {
         }
     }
 
-    int *in_cnt = calloc(N, sizeof(int));
+    int *in_cnt = xcalloc((size_t)N, sizeof(int));
     for (int i = 0; i < M; i++) {
         g->out_degree[srcs.data[i]]++;
         in_cnt[dsts.data[i]]++;
     }
     for (int i = 0; i < N; i++) g->row_ptr[i + 1] = g->row_ptr[i] + in_cnt[i];
     for (int i = 0; i < N; i++) g->inv_out_degree[i] = g->out_degree[i] ? 1.0 / (double) g->out_degree[i] : 0.0;
-    int *pos = calloc(N, sizeof(int));
+    int *pos = xcalloc((size_t)N, sizeof(int));
     for (int i = 0; i < M; i++) {
         int d = dsts.data[i];
         g->col_idx[g->row_ptr[d] + pos[d]++] = srcs.data[i];
     }
     free(srcs.data); free(dsts.data); free(in_cnt); free(pos);
+    sht_clear();
     return g;
 }
 
@@ -161,14 +194,14 @@ static void broadcast_graph(CSRGraph **g_ptr, int rank, MPI_Comm comm) {
     MPI_Bcast(&N, 1, MPI_INT, 0, comm);
     MPI_Bcast(&M, 1, MPI_INT, 0, comm);
     if (rank != 0) {
-        g = malloc(sizeof(CSRGraph));
+        g = xmalloc(sizeof(CSRGraph));
         g->n_nodes = N;
         g->n_edges = M;
-        g->row_ptr = malloc((N + 1) * sizeof(int));
-        g->out_degree = malloc(N * sizeof(int));
-        g->inv_out_degree = malloc(N * sizeof(double));
-        g->col_idx = malloc((M > 0 ? M : 1) * sizeof(int));
-        g->names = malloc(N * NAME_LEN);
+        g->row_ptr = xmalloc(((size_t)N + 1) * sizeof(int));
+        g->out_degree = xmalloc((size_t)N * sizeof(int));
+        g->inv_out_degree = xmalloc((size_t)N * sizeof(double));
+        g->col_idx = xmalloc((size_t)(M > 0 ? M : 1) * sizeof(int));
+        g->names = xmalloc((size_t)N * sizeof(*g->names));
     }
     MPI_Bcast(g->row_ptr, N + 1, MPI_INT, 0, comm);
     MPI_Bcast(g->out_degree, N, MPI_INT, 0, comm);
@@ -210,7 +243,7 @@ static int rank_pair_desc(const void *a, const void *b) {
 
 static void print_top_k(const CSRGraph *g, const double *pr, int k) {
     if (k > g->n_nodes) k = g->n_nodes;
-    RankPair *pairs = malloc(g->n_nodes * sizeof(RankPair));
+    RankPair *pairs = malloc((size_t)g->n_nodes * sizeof(RankPair));
     if (!pairs) return;
     for (int i = 0; i < g->n_nodes; i++) {
         pairs[i].idx = i;
@@ -263,6 +296,7 @@ int main(int argc, char **argv) {
     int max_iter = (argc > 6) ? atoi(argv[6]) : 1000;
     const char *out_file = (argc > 7) ? argv[7] : "pagerank_hybrid_output.txt";
     if (threads < 1) threads = 1;
+    omp_set_dynamic(0);
     omp_set_num_threads(threads);
 
     if (rank == 0) {
@@ -271,6 +305,16 @@ int main(int argc, char **argv) {
         printf("Mode      : %s\n", directed ? "directed" : "undirected");
         printf("MPI ranks : %d\n", size);
         printf("Threads   : %d\n", threads);
+#ifdef PR_DISABLE_INV_OUT_DEG
+        printf("Out degree term : division\n");
+#else
+        printf("Out degree term : cached reciprocal\n");
+#endif
+#ifdef PR_UPDATE_SCHEDULE_STATIC
+        printf("Update schedule : static\n");
+#else
+        printf("Update schedule : dynamic,256\n");
+#endif
         printf("Damping   : %.4f\n", damping);
         printf("Tolerance : %.2e\n", tol);
         printf("Max iter  : %d\n\n", max_iter);
@@ -316,10 +360,10 @@ int main(int argc, char **argv) {
                min_inedges, avg_inedges, max_inedges, imbalance);
     }
 
-    double *pr = malloc(N * sizeof(double));
-    double *pr_new = malloc(N * sizeof(double));
-    int *recvcounts = malloc(size * sizeof(int));
-    int *displs = malloc(size * sizeof(int));
+    double *pr = malloc((size_t)N * sizeof(double));
+    double *pr_new = malloc((size_t)N * sizeof(double));
+    int *recvcounts = malloc((size_t)size * sizeof(int));
+    int *displs = malloc((size_t)size * sizeof(int));
     if (!pr || !pr_new || !recvcounts || !displs) {
         fprintf(stderr, "Rank %d: allocation failed\n", rank);
         MPI_Abort(MPI_COMM_WORLD, 2);
@@ -327,9 +371,69 @@ int main(int argc, char **argv) {
     make_counts_displs(N, size, recvcounts, displs);
     for (int i = 0; i < N; i++) pr[i] = 1.0 / N;
 
+    const char *profile_thread_work = getenv("PR_PROFILE_THREAD_WORK");
+    if (profile_thread_work && strcmp(profile_thread_work, "0") != 0) {
+        long long *thread_edges = xcalloc((size_t)threads, sizeof(long long));
+        double *thread_sink = xcalloc((size_t)threads, sizeof(double));
+        int actual_threads = 0;
+#pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            long long edges_seen = 0;
+            double sink = 0.0;
+#pragma omp single
+            actual_threads = omp_get_num_threads();
+#ifdef PR_UPDATE_SCHEDULE_STATIC
+#pragma omp for schedule(static)
+#else
+#pragma omp for schedule(dynamic, 256)
+#endif
+            for (int v = begin; v < end; v++) {
+                edges_seen += (long long)(g->row_ptr[v + 1] - g->row_ptr[v]);
+                for (int k = g->row_ptr[v]; k < g->row_ptr[v + 1]; k++) {
+                    int u = g->col_idx[k];
+#ifdef PR_DISABLE_INV_OUT_DEG
+                    if (g->out_degree[u] != 0) sink += pr[u] / (double)g->out_degree[u];
+#else
+                    sink += pr[u] * g->inv_out_degree[u];
+#endif
+                }
+            }
+            thread_edges[tid] = edges_seen;
+            thread_sink[tid] = sink;
+        }
+
+        long long local_min = LLONG_MAX, local_max = 0, local_sum = 0;
+        double local_sink = 0.0;
+        for (int t = 0; t < actual_threads; t++) {
+            if (thread_edges[t] < local_min) local_min = thread_edges[t];
+            if (thread_edges[t] > local_max) local_max = thread_edges[t];
+            local_sum += thread_edges[t];
+            local_sink += thread_sink[t];
+        }
+
+        long long global_min = 0, global_max = 0, global_sum = 0;
+        int global_workers = 0;
+        double global_sink = 0.0;
+        MPI_Reduce(&local_min, &global_min, 1, MPI_LONG_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&local_max, &global_max, 1, MPI_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&local_sum, &global_sum, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&actual_threads, &global_workers, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&local_sink, &global_sink, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        if (rank == 0) {
+            double avg = global_workers > 0 ? global_sum / (double)global_workers : 0.0;
+            double imbalance = avg > 0.0 ? global_max / avg : 0.0;
+            printf("Thread work inedges : min=%lld avg=%.2f max=%lld imbalance=%.6f workers=%d\n",
+                   global_min, avg, global_max, imbalance, global_workers);
+            printf("Thread work probe checksum : %.12e\n\n", global_sink);
+        }
+        free(thread_edges);
+        free(thread_sink);
+    }
+
     double base = (1.0 - damping) / N;
     int iters = 0;
-    MpiTiming timing = {0.0, 0.0, 0.0};
+    MpiTiming timing = {0.0, 0.0, 0.0, 0.0};
     MPI_Barrier(MPI_COMM_WORLD);
     double t0 = MPI_Wtime();
     for (int iter = 0; iter < max_iter; iter++) {
@@ -345,6 +449,7 @@ int main(int argc, char **argv) {
         timing.dangling_reduce += MPI_Wtime() - tc;
         double dang = damping * dangling / N;
 
+        double tu = MPI_Wtime();
 #ifdef PR_UPDATE_SCHEDULE_STATIC
 #pragma omp parallel for schedule(static)
 #else
@@ -362,6 +467,7 @@ int main(int argc, char **argv) {
             }
             pr_new[v] = base + dang + damping * s;
         }
+        timing.update_kernel += MPI_Wtime() - tu;
 
         double diff_local = 0.0;
 #pragma omp parallel for reduction(+:diff_local) schedule(static)
@@ -382,12 +488,13 @@ int main(int argc, char **argv) {
     double local_pr_t = MPI_Wtime() - t0;
     double local_comm_t = timing.dangling_reduce + timing.diff_reduce + timing.allgatherv;
 
-    double pr_t = 0.0, comm_t = 0.0, dangling_t = 0.0, diff_t = 0.0, allgatherv_t = 0.0;
+    double pr_t = 0.0, comm_t = 0.0, dangling_t = 0.0, diff_t = 0.0, allgatherv_t = 0.0, update_t = 0.0;
     MPI_Reduce(&local_pr_t, &pr_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&local_comm_t, &comm_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&timing.dangling_reduce, &dangling_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&timing.diff_reduce, &diff_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&timing.allgatherv, &allgatherv_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&timing.update_kernel, &update_t, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     double sum = 0.0;
     for (int i = 0; i < N; i++) sum += pr[i];
@@ -402,6 +509,7 @@ int main(int argc, char **argv) {
         printf("Dangling reduce time : %.6f s  (max rank)\n", dangling_t);
         printf("Diff reduce time     : %.6f s  (max rank)\n", diff_t);
         printf("Allgatherv time      : %.6f s  (max rank)\n", allgatherv_t);
+        printf("Update kernel time   : %.6f s  (max rank)\n", update_t);
         printf("Total time : %.6f s  (load + PR)\n", load_t + pr_t);
         printf("PR sum     : %.10f  (range across ranks: %.10f..%.10f)\n",
                sum, min_sum, max_sum);

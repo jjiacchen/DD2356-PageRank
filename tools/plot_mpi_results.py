@@ -64,6 +64,8 @@ def label_for(row: dict[str, str]) -> str:
     dataset = row.get("dataset", "dataset")
     mode = row.get("mode", "")
     scaling = row.get("scaling_mode", "")
+    if scaling == "weak":
+        return f"scaled input {mode} weak".strip()
     return f"{dataset} {mode} {scaling}".strip()
 
 
@@ -90,12 +92,23 @@ def draw_axes(draw: ImageDraw.ImageDraw, y_max: float, y_label: str) -> None:
 
 def x_positions(ranks: list[int]) -> dict[int, float]:
     left, _top, right, _bottom = chart_area()
-    if len(ranks) == 1:
+    count = len(ranks)
+    if count == 1:
         return {ranks[0]: (left + right) / 2}
     return {
-        rank: left + (right - left) * i / (len(ranks) - 1)
+        rank: left + (right - left) * (i + 0.5) / count
         for i, rank in enumerate(ranks)
     }
+
+
+def bar_geometry(count: int) -> tuple[list[float], float]:
+    """Lay categorical bars across the available x-axis width."""
+    left, _top, right, _bottom = chart_area()
+    count = max(count, 1)
+    slot_width = (right - left) / count
+    centers = [left + slot_width * (i + 0.5) for i in range(count)]
+    bar_width = max(18.0, min(100.0, slot_width * 0.48))
+    return centers, bar_width
 
 
 def draw_legend(draw: ImageDraw.ImageDraw, labels: list[str], colors: list[tuple[int, int, int]]) -> None:
@@ -165,11 +178,10 @@ def stacked_runtime_chart(rows: list[dict[str, str]], out: Path) -> None:
     draw_axes(draw, ymax, "seconds")
     left, top, right, bottom = chart_area()
     n = max(len(rows), 1)
-    gap = 16
-    bar_w = max(18, min(70, (right - left - gap * (n + 1)) / n))
+    centers, bar_w = bar_geometry(n)
 
     for i, row in enumerate(rows):
-        x0 = left + gap + i * (bar_w + gap)
+        x0 = centers[i] - bar_w / 2
         x1 = x0 + bar_w
         compute_h = (bottom - top) * compute_vals[i] / ymax
         comm_h = (bottom - top) * comm_vals[i] / ymax
@@ -195,11 +207,10 @@ def bar_chart(rows: list[dict[str, str]], field: str, title: str, ylabel: str, o
     draw_axes(draw, ymax, ylabel)
     left, top, right, bottom = chart_area()
     n = max(len(rows), 1)
-    gap = 16
-    bar_w = max(18, min(70, (right - left - gap * (n + 1)) / n))
+    centers, bar_w = bar_geometry(n)
 
     for i, row in enumerate(rows):
-        x0 = left + gap + i * (bar_w + gap)
+        x0 = centers[i] - bar_w / 2
         x1 = x0 + bar_w
         val = float(row[field])
         y = bottom - (bottom - top) * val / ymax
@@ -221,8 +232,12 @@ def main() -> None:
     args = parse_args()
     rows = load_rows(args.csv)
     out = args.out_dir
-    line_chart(rows, "speedup", "MPI Speedup", "speedup", out / "mpi_speedup.png", ideal=True)
-    line_chart(rows, "parallel_efficiency", "MPI Parallel Efficiency", "efficiency", out / "mpi_efficiency.png")
+    if all("speedup" in r for r in rows):
+        line_chart(rows, "speedup", "MPI Speedup", "speedup", out / "mpi_speedup.png", ideal=True)
+    if all("parallel_efficiency" in r for r in rows):
+        line_chart(rows, "parallel_efficiency", "MPI Parallel Efficiency", "efficiency", out / "mpi_efficiency.png")
+    elif all("weak_efficiency" in r for r in rows):
+        line_chart(rows, "weak_efficiency", "MPI Weak Scaling Efficiency", "T1 / TP", out / "mpi_weak_efficiency.png")
     stacked_runtime_chart(rows, out / "mpi_runtime_breakdown.png")
     bar_chart(rows, "comm_fraction_avg", "MPI Communication Fraction", "comm / PR time", out / "mpi_comm_fraction.png")
     bar_chart(rows, "work_imbalance", "MPI Workload Balance", "max in-edges / avg", out / "mpi_workload_balance.png")

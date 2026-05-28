@@ -1,0 +1,4 @@
+implementation,variant,dataset,mode,nodes,edges,runs,iterations,pr_time_min_s,pr_time_avg_s,pr_time_median_s,total_time_avg_s,target_setup_avg_s,kernel_time_avg_s,target_teardown_avg_s,device_count,target_device_id,executed_on_device,max_error_max,status,speedup_vs_naive
+serial,serial,synthetic_100k_1m,directed,100000,1000000,5,19,0.033532000,0.036452000,0.035528000,0.036452000,0.000000000,0.000000000,0.000000000,0,-1,N/A,N/A,REFERENCE,1.641314606
+gpu,naive,synthetic_100k_1m,directed,100000,1000000,5,19,0.045720000,0.059829200,0.046791000,0.257351200,0.000000000,0.059829200,0.000000000,1,0,YES,1.016440e-20,PASS,1.000000000
+gpu,persistent,synthetic_100k_1m,directed,100000,1000000,5,19,0.032057000,0.033683600,0.032550000,0.230778800,0.000808600,0.032458600,0.000416000,1,0,YES,1.016440e-20,PASS,1.776211569

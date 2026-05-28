@@ -10,7 +10,6 @@
 #include <time.h>
 #include <omp.h>
 
-#define MAX_NODES 100000
 #define NAME_LEN  64
 #define SHT_SIZE (1 << 17)
 
@@ -21,10 +20,18 @@ typedef struct StrEntry {
 } StrEntry;
 
 static StrEntry *sht[SHT_SIZE];
-static StrEntry  sht_pool[MAX_NODES];
-static int       sht_used = 0;
 
-static void sht_clear(void) { memset(sht, 0, sizeof(sht)); sht_used = 0; }
+static void sht_clear(void) {
+    for (int i = 0; i < SHT_SIZE; i++) {
+        StrEntry *e = sht[i];
+        while (e) {
+            StrEntry *next = e->next;
+            free(e);
+            e = next;
+        }
+        sht[i] = NULL;
+    }
+}
 
 static unsigned str_hash(const char *s) {
     unsigned h = 5381;
@@ -36,7 +43,8 @@ static int sht_get_or_insert(const char *key, int *next_id) {
     unsigned h = str_hash(key);
     for (StrEntry *e = sht[h]; e; e = e->next)
         if (strcmp(e->key, key) == 0) return e->val;
-    StrEntry *e = &sht_pool[sht_used++];
+    StrEntry *e = malloc(sizeof(*e));
+    if (!e) { fprintf(stderr, "allocation failed: sht entry\n"); exit(1); }
     strncpy(e->key, key, NAME_LEN - 1);
     e->key[NAME_LEN - 1] = '\0';
     e->val = (*next_id)++;
@@ -159,6 +167,7 @@ static CSRGraph *load_csv(const char *filename, int directed, NodeMap *nm) {
     free(dsts.data);
     free(in_cnt);
     free(pos);
+    sht_clear();
     return g;
 }
 
@@ -189,7 +198,11 @@ static double *pagerank_openmp(const CSRGraph *g,
         }
         const double dang = damping * dangling / N;
 
+#ifdef PR_UPDATE_SCHEDULE_STATIC
+#pragma omp parallel for schedule(static)
+#else
 #pragma omp parallel for schedule(dynamic, 256)
+#endif
         for (int v = 0; v < N; v++) {
             double s = 0.0;
             for (int k = g->row_ptr[v]; k < g->row_ptr[v + 1]; k++) {
@@ -260,6 +273,11 @@ int main(int argc, char *argv[]) {
     printf("File      : %s\n", filename);
     printf("Mode      : %s\n", directed ? "directed" : "undirected");
     printf("Threads   : %d\n", threads);
+#ifdef PR_UPDATE_SCHEDULE_STATIC
+    printf("Update schedule : static\n");
+#else
+    printf("Update schedule : dynamic,256\n");
+#endif
     printf("Damping   : %.4f\n", damping);
     printf("Tolerance : %.2e\n", tol);
     printf("Max iter  : %d\n\n", max_iter);

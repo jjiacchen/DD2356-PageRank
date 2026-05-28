@@ -1,0 +1,10 @@
+=== Correctness Verification ===
+Reference : pagerank_serial_synthetic_100k_1m_kth.txt  (100000 nodes)
+Candidate : pagerank_openmp_output.txt  (100000 nodes)
+Tolerance : 1.00e-08
+
+Max |err| : 0.000000e+00  (node: )
+L1  error : 0.000000e+00
+L2  error : 0.000000e+00
+
+[PASS] Max error within tolerance 1.00e-08

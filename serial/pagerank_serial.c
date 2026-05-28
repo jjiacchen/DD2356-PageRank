@@ -33,7 +33,6 @@
 /* ═══════════════════════════════════════════════════════════════════
  *  字符串节点ID映射（节点名 → 内部连续ID 0..N-1）
  * ═══════════════════════════════════════════════════════════════════ */
-#define MAX_NODES 100000
 #define NAME_LEN  64
 
 typedef struct StrEntry {
@@ -44,10 +43,41 @@ typedef struct StrEntry {
 
 #define SHT_SIZE (1 << 17)
 static StrEntry *sht[SHT_SIZE];
-static StrEntry  sht_pool[MAX_NODES];
-static int       sht_used = 0;
 
-static void sht_clear(void) { memset(sht, 0, sizeof(sht)); sht_used = 0; }
+static void die_alloc(const char *what) {
+    fprintf(stderr, "allocation failed: %s\n", what);
+    exit(1);
+}
+
+static void *xmalloc(size_t n) {
+    void *p = malloc(n);
+    if (!p) die_alloc("malloc");
+    return p;
+}
+
+static void *xcalloc(size_t count, size_t size) {
+    void *p = calloc(count, size);
+    if (!p) die_alloc("calloc");
+    return p;
+}
+
+static void *xrealloc(void *ptr, size_t n) {
+    void *p = realloc(ptr, n);
+    if (!p) die_alloc("realloc");
+    return p;
+}
+
+static void sht_clear(void) {
+    for (int i = 0; i < SHT_SIZE; i++) {
+        StrEntry *e = sht[i];
+        while (e) {
+            StrEntry *next = e->next;
+            free(e);
+            e = next;
+        }
+        sht[i] = NULL;
+    }
+}
 
 static unsigned str_hash(const char *s) {
     unsigned h = 5381;
@@ -59,8 +89,9 @@ static int sht_get_or_insert(const char *key, int *next_id) {
     unsigned h = str_hash(key);
     for (StrEntry *e = sht[h]; e; e = e->next)
         if (strcmp(e->key, key) == 0) return e->val;
-    StrEntry *e = &sht_pool[sht_used++];
+    StrEntry *e = xmalloc(sizeof(*e));
     strncpy(e->key, key, NAME_LEN-1);
+    e->key[NAME_LEN-1] = '\0';
     e->val = (*next_id)++;
     e->next = sht[h]; sht[h] = e;
     return e->val;
@@ -81,7 +112,7 @@ typedef struct { int *data; int size; int cap; } IntVec;
 static void iv_push(IntVec *v, int x) {
     if (v->size == v->cap) {
         v->cap = v->cap ? v->cap * 2 : 16;
-        v->data = realloc(v->data, v->cap * sizeof(int));
+        v->data = xrealloc(v->data, (size_t)v->cap * sizeof(int));
     }
     v->data[v->size++] = x;
 }
@@ -174,21 +205,23 @@ CSRGraph *load_csv(const char *filename, int directed, NodeMap *nm) {
     int N = next_id, M = srcs.size;
 
     /* 建立节点名映射 */
-    nm->names = malloc(N * NAME_LEN);
+    nm->names = xmalloc((size_t)N * sizeof(*nm->names));
     nm->n = N;
     for (int s = 0; s < SHT_SIZE; s++)
-        for (StrEntry *e = sht[s]; e; e = e->next)
+        for (StrEntry *e = sht[s]; e; e = e->next) {
             strncpy(nm->names[e->val], e->key, NAME_LEN-1);
+            nm->names[e->val][NAME_LEN-1] = '\0';
+        }
 
     /* 构建 CSR（入边） */
-    CSRGraph *g   = malloc(sizeof(CSRGraph));
+    CSRGraph *g   = xmalloc(sizeof(CSRGraph));
     g->n_nodes    = N; g->n_edges = M;
-    g->out_degree = calloc(N, sizeof(int));
-    g->inv_out_degree = calloc(N, sizeof(double));
-    g->row_ptr    = calloc(N+1, sizeof(int));
-    g->col_idx    = malloc(M ? M * sizeof(int) : 1);
+    g->out_degree = xcalloc((size_t)N, sizeof(int));
+    g->inv_out_degree = xcalloc((size_t)N, sizeof(double));
+    g->row_ptr    = xcalloc((size_t)N + 1, sizeof(int));
+    g->col_idx    = xmalloc(M ? (size_t)M * sizeof(int) : 1);
 
-    int *in_cnt = calloc(N, sizeof(int));
+    int *in_cnt = xcalloc((size_t)N, sizeof(int));
     for (int i = 0; i < M; i++) {
         g->out_degree[srcs.data[i]]++;
         in_cnt[dsts.data[i]]++;
@@ -199,13 +232,14 @@ CSRGraph *load_csv(const char *filename, int directed, NodeMap *nm) {
     for (int i = 0; i < N; i++)
         g->inv_out_degree[i] = g->out_degree[i] ? 1.0 / (double)g->out_degree[i] : 0.0;
 
-    int *pos = calloc(N, sizeof(int));
+    int *pos = xcalloc((size_t)N, sizeof(int));
     for (int i = 0; i < M; i++) {
         int d = dsts.data[i];
         g->col_idx[g->row_ptr[d] + pos[d]++] = srcs.data[i];
     }
 
     free(srcs.data); free(dsts.data); free(in_cnt); free(pos);
+    sht_clear();
     return g;
 }
 
@@ -224,8 +258,8 @@ double *pagerank(const CSRGraph *g,
                  int *iters_out)
 {
     int N = g->n_nodes;
-    double *pr     = malloc(N * sizeof(double));
-    double *pr_new = malloc(N * sizeof(double));
+    double *pr     = xmalloc((size_t)N * sizeof(double));
+    double *pr_new = xmalloc((size_t)N * sizeof(double));
 
     for (int i = 0; i < N; i++) pr[i] = 1.0 / N;
 
@@ -275,7 +309,7 @@ static int rp_cmp(const void *a, const void *b) {
 void print_top_k(const double *pr, const NodeMap *nm, int K) {
     int N = nm->n;
     K = K > N ? N : K;
-    RankPair *rp = malloc(N * sizeof(RankPair));
+    RankPair *rp = xmalloc((size_t)N * sizeof(RankPair));
     for (int i = 0; i < N; i++) { rp[i].idx = i; rp[i].val = pr[i]; }
     qsort(rp, N, sizeof(RankPair), rp_cmp);
     printf("\nTop-%d nodes:\n", K);

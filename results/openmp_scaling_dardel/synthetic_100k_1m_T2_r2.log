@@ -1,0 +1,31 @@
+=== OpenMP PageRank ===
+File      : data/synthetic/synthetic_100k_1m.csv
+Mode      : directed
+Threads   : 2
+Update schedule : dynamic,256
+Damping   : 0.8500
+Tolerance : 1.00e-10
+Max iter  : 1000
+
+Nodes     : 100000
+Edges     : 1000000
+Load time : 0.1673 s
+
+Iterations : 19
+PR time    : 0.018999 s
+PR sum     : 1.0000000000  (should be ~1.0)
+
+Top-10 nodes:
+  Rank    Node                  PageRank
+  ------  --------------------  --------------------
+  1       62351                 0.0000304655
+  2       71560                 0.0000275365
+  3       70759                 0.0000269277
+  4       96426                 0.0000263584
+  5       48861                 0.0000259490
+  6       71422                 0.0000256568
+  7       59317                 0.0000256413
+  8       11112                 0.0000255653
+  9       49585                 0.0000255651
+  10      44783                 0.0000252720
+Results saved: pagerank_openmp_output.txt

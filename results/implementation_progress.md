@@ -24,20 +24,41 @@ This report implements the attached execution plan and records what is now in th
 - Verification summary written to `results/verification_matrix.md`.
 - Current status: OpenMP vs serial is PASS on all datasets.
 
-## 4) MPI + Hybrid implementation (code completed, runtime pending on MPI host)
+## 4) MPI + Hybrid implementation and measured runs
 
 - Added `mpi/pagerank_mpi.c`.
 - Added `mpi/pagerank_hybrid.c`.
 - Added cluster runner `scripts/run_mpi_cluster.sh`.
 - Build wiring added in `scripts/build_all.sh`.
-- Current host lacks `mpicc/mpirun`, so execution must be done on cluster.
+- MPI strong scaling has been measured on the school cluster and across two
+  Dardel `main` compute nodes with explicit placement records.
+- Reproducible MPI weak scaling has been measured on both platforms through
+  the required 16-rank `200k nodes / 2M edges` case; the formal Dardel run
+  spans `nid001120` and `nid001121` for every multi-rank row.
+- Hybrid fixed-core sweeps have been measured on the school cluster for
+  `P*N=16`.
 
-## 5) Bottleneck-driven optimizations + GPU offload prototype (completed in code)
+## 5) Bottleneck-driven optimizations + GPU offload validation (completed for Wang's scope)
 
 - Optimization A: precomputed reciprocal out-degree (`inv_out_degree`) to avoid repeated divides in hot loops.
 - Optimization B: OpenMP sparse loop scheduling (`dynamic,256`) for irregular incoming-edge workloads.
 - GPU/offload comparison path: `openmp/pagerank_openmp_gpu.c`.
-- Current verification matrix shows GPU output also matches serial on all datasets.
+- GPU profiling compares naive remapping with persistent device data regions.
+- A confirmed-device run on the DD2356 Small GPU server (NVIDIA H100
+  `MIG 1g.10gb`) passes all nine course datasets and all timed GPU repetitions.
+- On `synthetic_100k_1m.csv`, persistent GPU offload is `1.776212x` faster
+  than naive GPU offload; the same-server Hybrid `4x2` control remains faster.
+- Added `scripts/run_cluster_optimization_evidence.sh` for formal Medium-CPU
+  before/after measurement with valid core binding, `1x1` efficiency
+  baselines, update-kernel timing, and thread-level work diagnostics.
+- Added deterministic `skewed_100k_1m.csv` generation so dynamic scheduling is
+  evaluated against a controlled irregular-load stress input rather than
+  inferred from MPI-rank imbalance.
+- The formal CPU ablation includes `36` summary rows and `360` correctness-
+  checked timed samples per input. On the regular graph, full optimization
+  improves `1x4` PR time by `1.1702x` and increases parallel efficiency by
+  `+0.0417`; on the skewed input, dynamic scheduling reduces `1x16` thread
+  imbalance from `11.7988` to `1.2415`.
 
 ## 6) Consolidation assets (completed)
 
@@ -46,9 +67,11 @@ This report implements the attached execution plan and records what is now in th
 - Next-step execution guide: `results/next_steps_execution.md`.
 - README updated with end-to-end workflow and MPI/hybrid commands.
 
-## Immediate next runtime action on cluster
+## Remaining A-level runtime actions
 
-1. Run `scripts/build_all.sh` on MPI-enabled node.
-2. Run `scripts/run_mpi_cluster.sh`.
-3. Verify MPI/hybrid outputs with `verify/verify` against files under `references/`.
-4. Paste cluster scaling table into report from `results/scaling_cluster.md`.
+1. Measure OpenMP scaling against serial on Colab, KTH, and Dardel
+   (Minyi Zhu's OpenMP-analysis scope).
+2. Repeat the school-cluster Hybrid fixed-core search for additional total
+   worker budgets beyond `P*N=16` (Minyi Zhu's hybrid-analysis scope).
+See `results/a_grade_requirements_audit.md` for the evidence matrix and scope
+cautions.

@@ -7,6 +7,8 @@ Platforms:
 - `colab`
 - `kth`
 - `dardel`
+- `cluster_cpu` (DD2356 school-cluster CPU session / pinned OpenMPI cores)
+- `cluster_gpu` (DD2356 Small GPU server / NVIDIA H100 `MIG 1g.10gb`)
 
 Variants:
 - `serial`
@@ -32,18 +34,21 @@ Main dataset:
 | openmp | local | threads=2 | TBD | 0.002522 | 108 | 0.77 | 0.39 |
 | openmp | local | threads=4 | TBD | 0.002598 | 108 | 0.75 | 0.19 |
 | openmp | local | threads=8 | TBD | 0.003797 | 108 | 0.51 | 0.06 |
-| openmp | colab | threads=? |  |  |  |  |  |
-| openmp | kth | threads=? |  |  |  |  |  |
-| openmp | dardel | threads=? |  |  |  |  |  |
+| openmp | colab | threads=2 (best) | TBD | 0.003090 | 108 | 1.20 | 0.60 |
+| openmp | kth | threads=8 (best, synthetic_100k_1m) | TBD | 0.009724 | 19 | 3.57 | 0.45 |
+| openmp | kth | threads=32 (peak speedup, synthetic_100k_1m) | TBD | 0.007747 | 19 | 4.48 | 0.14 |
+| openmp | dardel | threads=2 (best efficiency, synthetic_100k_1m) | TBD | 0.018967 | 19 | 1.79 | 0.89 |
+| openmp | dardel | threads=16 (peak speedup, synthetic_100k_1m) | TBD | 0.007848 | 19 | 4.32 | 0.27 |
 | mpi | local | ranks=4 | 0.0010 | 0.004730 | 108 | 0.41 | 0.10 |
 | mpi | colab | ranks=? |  |  |  |  |  |
-| mpi | kth | ranks=? |  |  |  |  |  |
-| mpi | dardel | ranks=16 | 0.0108 | 14.060021 | 108 | 0.000246 | 0.000015 |
+| mpi | kth | ranks=16 |  | 0.002844 | 108 | 0.8435 | 0.0527 |
+| mpi | dardel | ranks=16 | 0.0108 | 14.117646 | 108 | 0.000245 | 0.000015 |
 | hybrid | local | ranks=? x threads=? |  |  |  |  |  |
-| hybrid | colab | ranks=? x threads=? |  |  |  |  |  |
-| hybrid | kth | ranks=? x threads=? |  |  |  |  |  |
-| hybrid | dardel | ranks=? x threads=? |  |  |  |  |  |
-| gpu | local | omp-target | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
+| hybrid | colab | ranks=1 x threads=2 (best, P*N=2) | TBD | 0.003168 | 108 | 1.17 | 0.59 |
+| hybrid | kth | ranks=2 x threads=4 (best, P*N=8, synthetic) | TBD | 0.016310 | 19 | 2.13 | 0.27 |
+| hybrid | kth | ranks=16 x threads=1 |  | 0.002907 | 108 | 0.8253 | 0.0516 |
+| hybrid | dardel | ranks=1 x threads=16 (best, P*N=16, synthetic) | TBD | 0.010186 | 19 | 3.33 | 0.21 |
+| gpu | local | omp-target fallback (diagnostic) | 0.0027 | 0.053566 | 108 | 0.04 | N/A |
 | gpu | colab | omp-target |  |  |  |  |  |
 | gpu | kth | omp-target |  |  |  |  |  |
 | gpu | dardel | omp-target |  |  |  |  |  |
@@ -60,7 +65,7 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | polblogs.csv | directed | local | openmp | threads=8 | 1224 | 19090 | 0.003797 | 108 | 1.0000000000 | PASS |
 | polblogs.csv | directed | local | mpi | ranks=4 | 1224 | 19090 | 0.004730 | 108 | 1.0000000000 | PASS |
 | polblogs.csv | directed | local | hybrid | ranks=2 x threads=4 | 1224 | 19090 |  |  |  | PASS/FAIL |
-| polblogs.csv | directed | local | gpu | omp-target | 1224 | 19090 | 0.053566 | 108 | 1.0000000000 | PASS |
+| polblogs.csv | directed | local | gpu | omp-target fallback (diagnostic) | 1224 | 19090 | 0.053566 | 108 | 1.0000000000 | PASS |
 | karateDir.csv | directed | local | openmp/gpu | see verify matrix | 34 | 78 | TBD | 22 | 1.0000000000 | PASS |
 | lesmisDir.csv | directed | local | openmp/gpu | see verify matrix | 77 | 254 | TBD | 36 | 1.0000000000 | PASS |
 | dolphinsDir.csv | directed | local | openmp/gpu | see verify matrix | 62 | 159 | TBD | 29 | 1.0000000000 | PASS |
@@ -81,14 +86,40 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | local | polblogs.csv | 2 | 0.002522 | 0.70 | 0.35 |
 | local | polblogs.csv | 4 | 0.002598 | 0.68 | 0.17 |
 | local | polblogs.csv | 8 | 0.003797 | 0.47 | 0.06 |
-| kth | polblogs.csv | 1 |  | 1.00 | 1.00 |
-| kth | polblogs.csv | 2 |  |  |  |
-| kth | polblogs.csv | 4 |  |  |  |
-| kth | polblogs.csv | 8 |  |  |  |
-| dardel | polblogs.csv | 1 |  | 1.00 | 1.00 |
-| dardel | polblogs.csv | 2 |  |  |  |
-| dardel | polblogs.csv | 4 |  |  |  |
-| dardel | polblogs.csv | 8 |  |  |  |
+| colab | polblogs.csv | 1 | 0.003715 | 1.000 | 1.000 |
+| colab | polblogs.csv | 2 | 0.003090 | 1.202 | 0.601 |
+| colab | polblogs.csv | 4 | 0.011389 | 0.326 | 0.082 |
+| colab | synthetic_100k_1m.csv | 1 | 0.107972 | 1.000 | 1.000 |
+| colab | synthetic_100k_1m.csv | 2 | 0.128534 | 0.840 | 0.420 |
+| colab | synthetic_100k_1m.csv | 4 | 0.084794 | 1.273 | 0.318 |
+| kth | polblogs.csv | 1 | 0.001719 | 1.000 | 1.000 |
+| kth | polblogs.csv | 2 | 0.002092 | 0.822 | 0.411 |
+| kth | polblogs.csv | 4 | 0.001865 | 0.922 | 0.230 |
+| kth | polblogs.csv | 8 | 0.002724 | 0.631 | 0.079 |
+| kth | polblogs.csv | 16 | 0.004325 | 0.398 | 0.025 |
+| kth | polblogs.csv | 32 | 0.007671 | 0.224 | 0.007 |
+| kth | polblogs.csv | 64 | 0.020535 | 0.084 | 0.001 |
+| kth | synthetic_100k_1m.csv | 1 | 0.034672 | 1.000 | 1.000 |
+| kth | synthetic_100k_1m.csv | 2 | 0.023408 | 1.481 | 0.741 |
+| kth | synthetic_100k_1m.csv | 4 | 0.014078 | 2.463 | 0.616 |
+| kth | synthetic_100k_1m.csv | 8 | 0.009724 | 3.566 | 0.446 |
+| kth | synthetic_100k_1m.csv | 16 | 0.012408 | 2.794 | 0.175 |
+| kth | synthetic_100k_1m.csv | 32 | 0.007747 | 4.476 | 0.140 |
+| kth | synthetic_100k_1m.csv | 64 | 0.018960 | 1.829 | 0.029 |
+| dardel | polblogs.csv | 1 | 0.002246 | 1.000 | 1.000 |
+| dardel | polblogs.csv | 2 | 0.001649 | 1.362 | 0.681 |
+| dardel | polblogs.csv | 4 | 0.001697 | 1.324 | 0.331 |
+| dardel | polblogs.csv | 8 | 0.002510 | 0.895 | 0.112 |
+| dardel | polblogs.csv | 16 | 0.003331 | 0.674 | 0.042 |
+| dardel | polblogs.csv | 32 | 0.004682 | 0.480 | 0.015 |
+| dardel | polblogs.csv | 64 | 0.007997 | 0.281 | 0.004 |
+| dardel | synthetic_100k_1m.csv | 1 | 0.033882 | 1.000 | 1.000 |
+| dardel | synthetic_100k_1m.csv | 2 | 0.018967 | 1.786 | 0.893 |
+| dardel | synthetic_100k_1m.csv | 4 | 0.011699 | 2.896 | 0.724 |
+| dardel | synthetic_100k_1m.csv | 8 | 0.009030 | 3.752 | 0.469 |
+| dardel | synthetic_100k_1m.csv | 16 | 0.007848 | 4.317 | 0.270 |
+| dardel | synthetic_100k_1m.csv | 32 | 0.008923 | 3.797 | 0.119 |
+| dardel | synthetic_100k_1m.csv | 64 | 0.013099 | 2.587 | 0.040 |
 
 ### 3.2 MPI Strong Scaling (fixed dataset)
 | Platform | Dataset | Ranks | PR time (s) | Speedup vs 1 rank | Efficiency (= speedup / ranks) |
@@ -100,25 +131,168 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 | kth | polblogs.csv | 2 |  |  |  |
 | kth | polblogs.csv | 4 |  |  |  |
 | kth | polblogs.csv | 8 |  |  |  |
-| dardel | polblogs.csv | 1 | 0.003410 | 1.00 | 1.00 |
-| dardel | polblogs.csv | 2 | 7.930667 | 0.000430 | 0.000215 |
-| dardel | polblogs.csv | 4 | 7.924683 | 0.000430 | 0.000108 |
-| dardel | polblogs.csv | 8 | 10.368678 | 0.000329 | 0.000041 |
-| dardel | polblogs.csv | 16 | 14.060021 | 0.000243 | 0.000015 |
+| dardel (2 nodes) | polblogs.csv | 1 | 0.002364 | 1.00 | 1.00 |
+| dardel (2 nodes) | polblogs.csv | 2 | 0.003274 | 0.722008 | 0.361004 |
+| dardel (2 nodes) | polblogs.csv | 4 | 0.003406 | 0.694110 | 0.173528 |
+| dardel (2 nodes) | polblogs.csv | 8 | 0.003346 | 0.706557 | 0.088320 |
+| dardel (2 nodes) | polblogs.csv | 16 | 0.003732 | 0.633474 | 0.039592 |
 
-### 3.3 Hybrid Fixed-Core Search (P x N)
+### 3.3 MPI Weak Scaling (scaled synthetic dataset)
+| Platform | Dataset | Ranks | Nodes | Edges | Edges/rank | PR time (s) | Weak efficiency (= T1 / TP) | Status |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| kth | weak_1rank_12500_125000.csv | 1 | 12,500 | 125,000 | 125,000 | 0.003310 | 1.000000000 | PASS |
+| kth | weak_2rank_25000_250000.csv | 2 | 25,000 | 250,000 | 125,000 | 0.005345 | 0.619298836 | PASS |
+| kth | weak_4rank_50000_500000.csv | 4 | 50,000 | 500,000 | 125,000 | 0.007542 | 0.438951947 | PASS |
+| kth | weak_8rank_100000_1000000.csv | 8 | 100,000 | 1,000,000 | 125,000 | 0.011587 | 0.285694560 | PASS |
+| kth | weak_16rank_200000_2000000.csv | 16 | 200,000 | 2,000,000 | 125,000 | 0.024371 | 0.135833573 | PASS |
+| dardel (2 nodes) | weak_1rank_12500_125000.csv | 1 | 12,500 | 125,000 | 125,000 | 0.003778 | 1.000000000 | PASS |
+| dardel (2 nodes) | weak_2rank_25000_250000.csv | 2 | 25,000 | 250,000 | 125,000 | 0.005837 | 0.647216036 | PASS |
+| dardel (2 nodes) | weak_4rank_50000_500000.csv | 4 | 50,000 | 500,000 | 125,000 | 0.006134 | 0.615898790 | PASS |
+| dardel (2 nodes) | weak_8rank_100000_1000000.csv | 8 | 100,000 | 1,000,000 | 125,000 | 0.011932 | 0.316600181 | PASS |
+| dardel (2 nodes) | weak_16rank_200000_2000000.csv | 16 | 200,000 | 2,000,000 | 125,000 | 0.044137 | 0.085592587 | PASS |
+
+### 3.4 Hybrid Fixed-Core Search (P x N)
 | Platform | Dataset | Total cores | (P ranks, N threads) | PR time (s) | Best? |
 |---|---|---:|---|---:|---|
-| kth | polblogs.csv | 16 | (1,16) |  |  |
-| kth | polblogs.csv | 16 | (2,8) |  |  |
-| kth | polblogs.csv | 16 | (4,4) |  |  |
-| kth | polblogs.csv | 16 | (8,2) |  |  |
-| kth | polblogs.csv | 16 | (16,1) |  |  |
-| dardel | polblogs.csv | 16 | (1,16) |  |  |
-| dardel | polblogs.csv | 16 | (2,8) |  |  |
-| dardel | polblogs.csv | 16 | (4,4) |  |  |
-| dardel | polblogs.csv | 16 | (8,2) |  |  |
-| dardel | polblogs.csv | 16 | (16,1) |  |  |
+| colab (2 vCPU) | polblogs.csv | 2 | (1,2) | 0.003168 | best |
+| colab (2 vCPU) | polblogs.csv | 2 | (2,1) | 0.005025 |  |
+| colab (2 vCPU) | polblogs.csv | 4 | (1,4) | 0.023704 | oversubscribed |
+| colab (2 vCPU) | polblogs.csv | 4 | (2,2) | 0.872550 | oversubscribed |
+| colab (2 vCPU) | polblogs.csv | 4 | (4,1) | 0.010345 | oversubscribed |
+| kth | synthetic_100k_1m.csv | 4 | (1,4) | 0.027446 |  |
+| kth | synthetic_100k_1m.csv | 4 | (2,2) | 0.016788 | best |
+| kth | synthetic_100k_1m.csv | 4 | (4,1) | 0.034331 |  |
+| kth | synthetic_100k_1m.csv | 8 | (1,8) | 0.027021 |  |
+| kth | synthetic_100k_1m.csv | 8 | (2,4) | 0.016310 | best |
+| kth | synthetic_100k_1m.csv | 8 | (4,2) | 0.023685 |  |
+| kth | synthetic_100k_1m.csv | 8 | (8,1) | 3.689258 | Allgatherv bottleneck (99.5% comm; 226x worse than (2,4)) |
+| kth | polblogs.csv | 16 | (1,16) | 0.024310 |  |
+| kth | polblogs.csv | 16 | (2,8) | 0.010850 |  |
+| kth | polblogs.csv | 16 | (4,4) | 0.005325 |  |
+| kth | polblogs.csv | 16 | (8,2) | 0.004281 |  |
+| kth | polblogs.csv | 16 | (16,1) | 0.002907 | best |
+| dardel | synthetic_100k_1m.csv | 4 | (1,4) | 0.016967 | best |
+| dardel | synthetic_100k_1m.csv | 4 | (2,2) | 0.023799 |  |
+| dardel | synthetic_100k_1m.csv | 4 | (4,1) | 12.385226 | Allgatherv bottleneck (99.9% comm; 730x worse than (1,4)) |
+| dardel | synthetic_100k_1m.csv | 8 | (1,8) | 0.010275 | best |
+| dardel | synthetic_100k_1m.csv | 8 | (2,4) | 0.015294 |  |
+| dardel | synthetic_100k_1m.csv | 8 | (4,2) | 0.022952 |  |
+| dardel | synthetic_100k_1m.csv | 8 | (8,1) | 11.675666 | Allgatherv bottleneck (99.9% comm; 1136x worse than (1,8)) |
+| dardel | synthetic_100k_1m.csv | 16 | (1,16) | 0.010186 | best |
+| dardel | synthetic_100k_1m.csv | 16 | (2,8) | 0.012537 |  |
+| dardel | synthetic_100k_1m.csv | 16 | (4,4) | 0.018794 |  |
+| dardel | synthetic_100k_1m.csv | 16 | (8,2) | 0.028684 |  |
+| dardel | synthetic_100k_1m.csv | 16 | (16,1) | 17.886360 | Allgatherv bottleneck (99.9% comm; 1756x worse than (1,16)) |
+| dardel | synthetic_100k_1m.csv | 32 | (1,32) | 0.010177 | best |
+| dardel | synthetic_100k_1m.csv | 32 | (2,16) | 0.011800 |  |
+| dardel | synthetic_100k_1m.csv | 32 | (4,8) | 0.016089 |  |
+| dardel | synthetic_100k_1m.csv | 32 | (8,4) | 0.023263 |  |
+| dardel | synthetic_100k_1m.csv | 32 | (16,2) | 0.031414 |  |
+| dardel | synthetic_100k_1m.csv | 32 | (32,1) | 12.151785 | Allgatherv bottleneck (60% comm; 1194x worse than (1,32)) |
+
+The Dardel multi-budget Hybrid sweep was re-measured on a clean
+`--nodes=1 --ntasks=128 --exclusive` allocation with `srun --cpus-per-task`
+matched to each combo's thread count, eliminating the Slurm allocation
+warnings present in the earlier diagnostic runs. The pattern is striking and
+qualitatively different from KTH: on Dardel the `(1, N)` pure-OpenMP layout
+wins every total-core budget (`P*N = 4, 8, 16, 32`), and all `(P, 1)`
+pure-MPI layouts collapse to `11.7-17.9` s with `~99.9%` communication
+fraction, i.e. PR time degrades by `730x-1756x` versus the best layout at the
+same budget. From `P*N = 8` onward the best PR time plateaus near `10` ms,
+matching the OpenMP `T = 16` peak in §3.1, which means Hybrid offers no
+additional benefit beyond the single-rank OpenMP ceiling on this node. The
+contrast with KTH (where `(2, 4)` beat `(1, 8)`) is explained by the MPI
+implementation: Dardel uses Cray MPICH over Slingshot which has high
+fixed-latency Allgatherv on this `100k`-element vector, while KTH JupyterHub
+uses single-node OpenMPI shared-memory transport with much lower per-message
+overhead. The cross-platform conclusion is therefore stronger than a single
+tuned `(P, N)`: the Hybrid model's value depends on the MPI runtime's
+collective-communication cost, and a portable PageRank implementation must
+detect when intra-node OpenMP suffices.
+
+The KTH JupyterHub measurements on `synthetic_100k_1m.csv` add the first
+multi-budget Hybrid evidence required by the proposal. Across both `P*N = 4`
+and `P*N = 8`, the optimal layout sits at `(2, 2)` and `(2, 4)` respectively,
+both yielding PR time around `16` ms with `comm fraction` near `16%`. The
+`(8, 1)` layout at `P*N = 8` collapses to `3.69` s with `99.5%` communication
+fraction, demonstrating that pure-MPI scaling on a single shared node is
+bounded by Allgatherv on the `100k`-element rank vector once rank count
+exceeds the few-rank regime; this matches the Dardel `(16, 1)` collapse to
+`17.3` s on the same graph and motivates the Hybrid model directly.
+Crucially, doubling the worker budget from `P*N = 4` to `P*N = 8` only
+shortens PR time from `16.79` ms to `16.31` ms (a `1.03x` improvement), which
+shows the OpenMP scaling ceiling identified in §3.1 (memory bandwidth bound
+near T = 8) also caps the Hybrid sweet spot on this node.
+
+On Dardel (AMD EPYC Zen2, 128 cores per node, dual-socket) the OpenMP scaling
+on `synthetic_100k_1m.csv` is the cleanest measured: efficiency stays above
+`0.72` through `T = 4`, peaks at `4.32x` speedup at `T = 16`, and only mildly
+regresses to `3.80x` at `T = 32` before SMT-induced collapse at `T = 64`. The
+absence of the KTH-style `T = 16` mid-curve regression suggests EPYC chiplet
+boundaries are crossed more gradually than Intel Sapphire Rapids sub-NUMA
+clusters, but the same memory-bandwidth ceiling caps absolute speedup near
+`4-5x` despite `128` physical cores. Polblogs on Dardel sweeps in the same
+direction: `T = 2` reaches efficiency `0.68`, then performance degrades from
+`T = 8` onward because the per-iteration work (`19090` edges over `108`
+iterations) cannot amortise fork-join overhead beyond a handful of threads.
+
+Colab provides only `2` vCPUs on a shared host (Intel Xeon @ 2.20 GHz), so it
+contributes a controlled oversubscription contrast rather than a high-rank
+scaling point. The `P*N = 2` rows are the meaningful measurements: `(1, 2)`
+runs faster than `(2, 1)` because the within-process OpenMP path avoids the
+Allreduce + Allgatherv overhead (comm fraction `1.8%` vs `77.3%`). The
+`P*N = 4` rows are kept as oversubscription evidence: requesting four total
+workers on two cores degrades PR time by `3.3x` for `(1, 4)`, `7.7x` for
+`(4, 1)`, and catastrophically by `275x` for `(2, 2)` because two MPI ranks
+each spawning two threads compete with the kernel scheduler on every barrier.
+Mirror behaviour appears in the OpenMP-only column: T=4 on polblogs degrades
+to `0.011389 s` (efficiency `0.082`), while the larger
+`synthetic_100k_1m.csv` graph remains memory-bound enough that even
+oversubscribed T=4 (`0.084794 s`) beats the noisier T=2 average (`0.128534 s`).
+The Colab data therefore confirms two report claims: (a) intra-node OpenMP
+beats fine-grained MPI when total workers equal physical cores, and (b) the
+Hybrid model relies on `P*N <= physical_cores` to stay above the comm/sched
+break-even.
+
+### 3.5 Confirmed-Device GPU Comparison (same Small GPU server)
+
+The GPU comparison uses `synthetic_100k_1m.csv (directed)` for all rows. GPU
+target execution was required and confirmed; the Hybrid control uses the eight
+CPU workers available alongside the Small GPU allocation.
+
+| Implementation | Configuration | PR time avg (s) | Total time avg (s) | Speedup vs. serial | Device confirmed | Status |
+|---|---|---:|---:|---:|---|---|
+| serial | 1 CPU thread | 0.036452 | 0.036452 | 1.000000 | N/A | REFERENCE |
+| gpu | naive mapping | 0.059829 | 0.257351 | 0.609268 | YES | PASS |
+| gpu | persistent mapping | 0.033684 | 0.230779 | 1.082188 | YES | PASS |
+| hybrid | (4,2), 8 CPU workers | 0.010364 | 0.218843 | 3.517107 | N/A | PASS |
+
+Persistent GPU data mapping is `1.776212x` faster than the naive offload path,
+while the same-server Hybrid control is `3.249995x` faster than persistent GPU
+PageRank at this graph size.
+
+### 3.6 Profiling-Guided Optimization Evidence (school-cluster CPU)
+
+The formal optimization run uses `synthetic_100k_1m.csv (directed)` as the
+main performance input. Each variant has its own `1x1` baseline for parallel
+efficiency; each table row averages ten verified timed repetitions after one
+warmup.
+
+| Configuration | PR no-inv/static (s) | PR inv/dynamic (s) | Full speedup | Efficiency no-inv/static | Efficiency inv/dynamic | Efficiency delta | Status |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `1x1` | 0.035842 | 0.032455 | 1.1043 | 1.0000 | 1.0000 | +0.0000 | PASS |
+| `1x4` | 0.012826 | 0.010960 | 1.1702 | 0.6986 | 0.7403 | +0.0417 | PASS |
+| `1x8` | 0.006531 | 0.006945 | 0.9403 | 0.6860 | 0.5841 | -0.1019 | PASS |
+| `1x16` | 0.005576 | 0.005765 | 0.9672 | 0.4017 | 0.3518 | -0.0499 | PASS |
+| `2x8` | 0.006187 | 0.005274 | 1.1732 | 0.3621 | 0.3846 | +0.0226 | PASS |
+| `4x4` | 0.007609 | 0.007524 | 1.0113 | 0.2944 | 0.2696 | -0.0248 | PASS |
+
+The controlled `skewed_100k_1m.csv` input exposes contiguous thread-load
+imbalance. At `1x16`, switching from `inv_static` to `inv_dynamic` reduces
+thread imbalance from `11.7988` to `1.2415` and update-kernel time from
+`0.017573` s to `0.003117` s. On the regular graph, the same schedule does
+not improve every end-to-end runtime, so efficiency decreases for the
+thread-only `1x8` and `1x16` layouts.
 
 ---
 
@@ -126,8 +300,18 @@ Fill per platform and variant. Keep this table for appendix / detailed results.
 
 - Serial baseline data: `results/baseline_results.md`
 - Local OpenMP scaling data: `results/scaling_local.md`
+- Colab OpenMP scaling data: `results/openmp_scaling_colab.csv` (per-run logs under `results/openmp_scaling_colab/`)
+- KTH OpenMP scaling data: `results/openmp_scaling_kth.csv` (per-run logs under `results/openmp_scaling_kth/`); supersedes the earlier single-run polblogs rows
+- KTH Hybrid fixed-core data: `results/hybrid_fixedcore_cluster_pn4_synthetic_100k_1m_directed.csv` (P*N=4), `results/hybrid_fixedcore_cluster_pn8_synthetic_100k_1m_directed.csv` (P*N=8); existing `results/hybrid_fixedcore_cluster_polblogs_directed.csv` retains P*N=16 polblogs sweep
+- Dardel OpenMP scaling data: `results/openmp_scaling_dardel.csv` (per-run logs under `results/openmp_scaling_dardel/`); single-node `--exclusive` allocation on `main` partition (AMD EPYC Zen2)
+- Dardel Hybrid fixed-core data: `results/hybrid_fixedcore_dardel_pn4_synthetic_100k_1m_directed.csv`, `..._pn8_...csv`, `..._pn16_...csv`, `..._pn32_...csv` (4 budgets, 18 combos total; clean `--exclusive` + `srun --cpus-per-task` allocation; supersedes earlier provisional rows)
+- Colab Hybrid fixed-core data: `results/hybrid_fixedcore_colab_pn2_polblogs_directed.csv`, `results/hybrid_fixedcore_colab_pn4_polblogs_directed.csv` (P*N=4 oversubscribed)
 - Correctness matrix (OpenMP/GPU): `results/verification_matrix.md`
 - Serial hotspot context: `results/hotspot_notes.md`, `results/gprof_polblogs.txt`, `results/perf_stat_polblogs.txt`
-- MPI local and Dardel runs: `results/mpi_scaling_polblogs_directed.csv`, `results/mpi_scaling_dardel_course_polblogs_directed.csv`
-- Hybrid fixed-core runs: `mpi/profile_hybrid.sh` -> `results/hybrid_fixedcore_<dataset>_<mode>.csv`
+- MPI local, KTH, and Dardel runs: `results/mpi_scaling_polblogs_directed.csv`, `results/mpi_scaling_cluster_polblogs_directed.csv`, `results/mpi_scaling_dardel_multinode_course_polblogs_directed.csv`, `results/mpi_weak_scaling_cluster_directed.csv`, `results/mpi_weak_scaling_dardel_multinode_directed.csv`
+- Hybrid fixed-core runs: `mpi/profile_hybrid.sh` -> `results/hybrid_fixedcore_<platform>_<dataset>_<mode>.csv`
 - School-cluster MPI/Hybrid runs: `run_mpi_cluster.sh` -> result CSV files to be generated on an MPI-enabled cluster
+- Confirmed-device GPU correctness: `results/gpu_correctness_cluster_gpu.csv`
+- Same-server GPU/Hybrid comparison: `results/gpu_offload_cluster_gpu_synthetic_100k_1m_directed.csv`, `results/hybrid_fixedcore_cluster_gpu_synthetic_100k_1m_directed.csv`, and `results/gpu_vs_hybrid_cluster_gpu_synthetic_100k_1m_directed.csv`
+- GPU target evidence: `results/cluster_gpu_environment.log` and `results/cluster_gpu_device_probe.log`
+- Formal optimization evidence: `results/optimization_ablation_cluster_optpe_synthetic_100k_1m_directed.csv`, `results/optimization_ablation_cluster_optpe_skewed_100k_1m_directed.csv`, `results/optimization_evidence_cluster.md`, `results/cluster_optimization_environment.log`, and `results/cluster_optimization_binding.log`

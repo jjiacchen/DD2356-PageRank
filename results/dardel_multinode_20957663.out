@@ -1,0 +1,292 @@
+========================================
+ DD2356 MPI Dardel multi-node experiment
+========================================
+SLURM job      : 20957663
+Allocated nodes: nid001120;nid001121
+Ranks          : 1 2 4 8 16
+Repeat         : 5
+Placement      : P=1 on one node; P>=2 balanced across two nodes
+
+wrote data/synthetic/synthetic_10k_100k.csv (10000 nodes, 100000 edges)
+wrote data/synthetic/synthetic_50k_500k.csv (50000 nodes, 500000 edges)
+wrote data/synthetic/synthetic_100k_1m.csv (100000 nodes, 1000000 edges)
+wrote data/synthetic/weak_1rank_12500_125000.csv (12500 nodes, 125000 edges)
+wrote data/synthetic/weak_2rank_25000_250000.csv (25000 nodes, 250000 edges)
+wrote data/synthetic/weak_4rank_50000_500000.csv (50000 nodes, 500000 edges)
+wrote data/synthetic/weak_8rank_100000_1000000.csv (100000 nodes, 1000000 edges)
+wrote data/synthetic/weak_16rank_200000_2000000.csv (200000 nodes, 2000000 edges)
+========================================
+ DD2356 MPI PageRank - scaling profile
+========================================
+Graph        : data/synthetic/synthetic_100k_1m.csv (directed)
+Ranks        : 1 2 4 8 16
+Repeat       : 5
+Scaling mode : strong
+MPI runner   : srun  -n <np>
+Placement    : dardel_two_node_balanced
+Tolerance    : 1e-6
+
+[build] serial baseline
+[build] MPI version
+[build] verifier
+
+[reference] generating serial golden output
+
+[run] np=1 repeat=1/5
+  status=PASS, PR=0.038607000 s, comm=0.003132000 s, max_err=1.016440e-20
+
+[run] np=1 repeat=2/5
+  status=PASS, PR=0.038317000 s, comm=0.003123000 s, max_err=1.016440e-20
+
+[run] np=1 repeat=3/5
+  status=PASS, PR=0.034994000 s, comm=0.000402000 s, max_err=1.016440e-20
+
+[run] np=1 repeat=4/5
+  status=PASS, PR=0.034843000 s, comm=0.000409000 s, max_err=1.016440e-20
+
+[run] np=1 repeat=5/5
+  status=PASS, PR=0.034890000 s, comm=0.000405000 s, max_err=1.016440e-20
+
+[run] np=2 repeat=1/5
+  status=PASS, PR=0.020228000 s, comm=0.002539000 s, max_err=1.016440e-20
+
+[run] np=2 repeat=2/5
+  status=PASS, PR=0.020441000 s, comm=0.002921000 s, max_err=1.016440e-20
+
+[run] np=2 repeat=3/5
+  status=PASS, PR=0.020456000 s, comm=0.002931000 s, max_err=1.016440e-20
+
+[run] np=2 repeat=4/5
+  status=PASS, PR=0.020429000 s, comm=0.003263000 s, max_err=1.016440e-20
+
+[run] np=2 repeat=5/5
+  status=PASS, PR=0.020378000 s, comm=0.003247000 s, max_err=1.016440e-20
+
+[run] np=4 repeat=1/5
+  status=PASS, PR=0.012585000 s, comm=0.003714000 s, max_err=1.016440e-20
+
+[run] np=4 repeat=2/5
+  status=PASS, PR=0.012551000 s, comm=0.003718000 s, max_err=1.016440e-20
+
+[run] np=4 repeat=3/5
+  status=PASS, PR=0.012515000 s, comm=0.003944000 s, max_err=1.016440e-20
+
+[run] np=4 repeat=4/5
+  status=PASS, PR=0.013018000 s, comm=0.003860000 s, max_err=1.016440e-20
+
+[run] np=4 repeat=5/5
+  status=PASS, PR=0.012867000 s, comm=0.003931000 s, max_err=1.016440e-20
+
+[run] np=8 repeat=1/5
+  status=PASS, PR=0.013547000 s, comm=0.007544000 s, max_err=1.016440e-20
+
+[run] np=8 repeat=2/5
+  status=PASS, PR=0.011484000 s, comm=0.005708000 s, max_err=1.016440e-20
+
+[run] np=8 repeat=3/5
+  status=PASS, PR=0.011580000 s, comm=0.005947000 s, max_err=1.016440e-20
+
+[run] np=8 repeat=4/5
+  status=PASS, PR=0.012990000 s, comm=0.007303000 s, max_err=1.016440e-20
+
+[run] np=8 repeat=5/5
+  status=PASS, PR=0.011423000 s, comm=0.005698000 s, max_err=1.016440e-20
+
+[run] np=16 repeat=1/5
+  status=PASS, PR=0.014309000 s, comm=0.011084000 s, max_err=1.016440e-20
+
+[run] np=16 repeat=2/5
+  status=PASS, PR=0.014217000 s, comm=0.010679000 s, max_err=1.016440e-20
+
+[run] np=16 repeat=3/5
+  status=PASS, PR=0.014052000 s, comm=0.010736000 s, max_err=1.016440e-20
+
+[run] np=16 repeat=4/5
+  status=PASS, PR=0.014296000 s, comm=0.010736000 s, max_err=1.016440e-20
+
+[run] np=16 repeat=5/5
+  status=PASS, PR=0.013663000 s, comm=0.010374000 s, max_err=1.016440e-20
+
+[done] wrote results/mpi_scaling_dardel_multinode_synthetic_100k_1m_directed_raw.csv
+[done] wrote results/mpi_scaling_dardel_multinode_synthetic_100k_1m_directed.csv
+========================================
+ DD2356 MPI PageRank - scaling profile
+========================================
+Graph        : data/polblogs.csv (directed)
+Ranks        : 1 2 4 8 16
+Repeat       : 5
+Scaling mode : strong
+MPI runner   : srun  -n <np>
+Placement    : dardel_two_node_balanced
+Tolerance    : 1e-6
+
+[build] serial baseline
+[build] MPI version
+[build] verifier
+
+[reference] generating serial golden output
+
+[run] np=1 repeat=1/5
+  status=PASS, PR=0.002349000 s, comm=0.000104000 s, max_err=1.734723e-18
+
+[run] np=1 repeat=2/5
+  status=PASS, PR=0.002348000 s, comm=0.000112000 s, max_err=1.734723e-18
+
+[run] np=1 repeat=3/5
+  status=PASS, PR=0.002347000 s, comm=0.000105000 s, max_err=1.734723e-18
+
+[run] np=1 repeat=4/5
+  status=PASS, PR=0.002390000 s, comm=0.000117000 s, max_err=1.734723e-18
+
+[run] np=1 repeat=5/5
+  status=PASS, PR=0.002386000 s, comm=0.000109000 s, max_err=1.734723e-18
+
+[run] np=2 repeat=1/5
+  status=PASS, PR=0.003303000 s, comm=0.003001000 s, max_err=1.040834e-17
+
+[run] np=2 repeat=2/5
+  status=PASS, PR=0.003223000 s, comm=0.002948000 s, max_err=1.040834e-17
+
+[run] np=2 repeat=3/5
+  status=PASS, PR=0.003370000 s, comm=0.003095000 s, max_err=1.040834e-17
+
+[run] np=2 repeat=4/5
+  status=PASS, PR=0.003244000 s, comm=0.002969000 s, max_err=1.040834e-17
+
+[run] np=2 repeat=5/5
+  status=PASS, PR=0.003231000 s, comm=0.002957000 s, max_err=1.040834e-17
+
+[run] np=4 repeat=1/5
+  status=PASS, PR=0.003413000 s, comm=0.003289000 s, max_err=2.168404e-18
+
+[run] np=4 repeat=2/5
+  status=PASS, PR=0.003397000 s, comm=0.003274000 s, max_err=2.168404e-18
+
+[run] np=4 repeat=3/5
+  status=PASS, PR=0.003380000 s, comm=0.003256000 s, max_err=2.168404e-18
+
+[run] np=4 repeat=4/5
+  status=PASS, PR=0.003400000 s, comm=0.003277000 s, max_err=2.168404e-18
+
+[run] np=4 repeat=5/5
+  status=PASS, PR=0.003439000 s, comm=0.003315000 s, max_err=2.168404e-18
+
+[run] np=8 repeat=1/5
+  status=PASS, PR=0.003293000 s, comm=0.003228000 s, max_err=1.040834e-17
+
+[run] np=8 repeat=2/5
+  status=PASS, PR=0.003393000 s, comm=0.003328000 s, max_err=1.040834e-17
+
+[run] np=8 repeat=3/5
+  status=PASS, PR=0.003355000 s, comm=0.003290000 s, max_err=1.040834e-17
+
+[run] np=8 repeat=4/5
+  status=PASS, PR=0.003434000 s, comm=0.003368000 s, max_err=1.040834e-17
+
+[run] np=8 repeat=5/5
+  status=PASS, PR=0.003254000 s, comm=0.003189000 s, max_err=1.040834e-17
+
+[run] np=16 repeat=1/5
+  status=PASS, PR=0.003828000 s, comm=0.003789000 s, max_err=2.168404e-18
+
+[run] np=16 repeat=2/5
+  status=PASS, PR=0.003592000 s, comm=0.003553000 s, max_err=2.168404e-18
+
+[run] np=16 repeat=3/5
+  status=PASS, PR=0.003843000 s, comm=0.003804000 s, max_err=2.168404e-18
+
+[run] np=16 repeat=4/5
+  status=PASS, PR=0.003554000 s, comm=0.003516000 s, max_err=2.168404e-18
+
+[run] np=16 repeat=5/5
+  status=PASS, PR=0.003842000 s, comm=0.003804000 s, max_err=2.168404e-18
+
+[done] wrote results/mpi_scaling_dardel_multinode_course_polblogs_directed_raw.csv
+[done] wrote results/mpi_scaling_dardel_multinode_course_polblogs_directed.csv
+========================================
+ DD2356 MPI PageRank - weak scaling
+========================================
+Mode          : directed
+Ranks         : 1 2 4 8 16
+Repeat        : 5
+Platform      : dardel_multinode
+Per-rank work : 12500 nodes, 125000 edges
+MPI runner    : srun  -n <np>
+Placement     : dardel_two_node_balanced
+Tolerance     : 1e-6
+
+[build] serial baseline
+[build] MPI version
+[build] verifier
+
+[reference] np=1 graph=data/synthetic/weak_1rank_12500_125000.csv
+[run] np=1 repeat=1/5
+  status=PASS, PR=0.003818000 s, comm=0.000134000 s, weak_eff=1.000000000, max_err=1.084202e-19
+[run] np=1 repeat=2/5
+  status=PASS, PR=0.003821000 s, comm=0.000132000 s, weak_eff=1.000000000, max_err=1.084202e-19
+[run] np=1 repeat=3/5
+  status=PASS, PR=0.003730000 s, comm=0.000137000 s, weak_eff=1.000000000, max_err=1.084202e-19
+[run] np=1 repeat=4/5
+  status=PASS, PR=0.003719000 s, comm=0.000136000 s, weak_eff=1.000000000, max_err=1.084202e-19
+[run] np=1 repeat=5/5
+  status=PASS, PR=0.003801000 s, comm=0.000128000 s, weak_eff=1.000000000, max_err=1.084202e-19
+
+[reference] np=2 graph=data/synthetic/weak_2rank_25000_250000.csv
+[run] np=2 repeat=1/5
+  status=PASS, PR=0.004689000 s, comm=0.000893000 s, weak_eff=0.805672851, max_err=9.486769e-20
+[run] np=2 repeat=2/5
+  status=PASS, PR=0.004657000 s, comm=0.000864000 s, weak_eff=0.811208933, max_err=9.486769e-20
+[run] np=2 repeat=3/5
+  status=PASS, PR=0.007261000 s, comm=0.003473000 s, weak_eff=0.520286462, max_err=9.486769e-20
+[run] np=2 repeat=4/5
+  status=PASS, PR=0.007717000 s, comm=0.003901000 s, weak_eff=0.489542568, max_err=9.486769e-20
+[run] np=2 repeat=5/5
+  status=PASS, PR=0.004861000 s, comm=0.001018000 s, weak_eff=0.777165192, max_err=9.486769e-20
+
+[reference] np=4 graph=data/synthetic/weak_4rank_50000_500000.csv
+[run] np=4 repeat=1/5
+  status=PASS, PR=0.006113000 s, comm=0.002069000 s, weak_eff=0.617994438, max_err=2.032879e-20
+[run] np=4 repeat=2/5
+  status=PASS, PR=0.006112000 s, comm=0.002081000 s, weak_eff=0.618095550, max_err=2.032879e-20
+[run] np=4 repeat=3/5
+  status=PASS, PR=0.006130000 s, comm=0.002114000 s, weak_eff=0.616280587, max_err=2.032879e-20
+[run] np=4 repeat=4/5
+  status=PASS, PR=0.006221000 s, comm=0.002156000 s, weak_eff=0.607265713, max_err=2.032879e-20
+[run] np=4 repeat=5/5
+  status=PASS, PR=0.006093000 s, comm=0.002001000 s, weak_eff=0.620022977, max_err=2.032879e-20
+
+[reference] np=8 graph=data/synthetic/weak_8rank_100000_1000000.csv
+[run] np=8 repeat=1/5
+  status=PASS, PR=0.011861000 s, comm=0.006498000 s, weak_eff=0.318506028, max_err=1.016440e-20
+[run] np=8 repeat=2/5
+  status=PASS, PR=0.011232000 s, comm=0.005570000 s, weak_eff=0.336342593, max_err=1.016440e-20
+[run] np=8 repeat=3/5
+  status=PASS, PR=0.012390000 s, comm=0.006928000 s, weak_eff=0.304907183, max_err=1.016440e-20
+[run] np=8 repeat=4/5
+  status=PASS, PR=0.012023000 s, comm=0.006504000 s, weak_eff=0.314214422, max_err=1.016440e-20
+[run] np=8 repeat=5/5
+  status=PASS, PR=0.012156000 s, comm=0.006546000 s, weak_eff=0.310776571, max_err=1.016440e-20
+
+[reference] np=16 graph=data/synthetic/weak_16rank_200000_2000000.csv
+[run] np=16 repeat=1/5
+  status=PASS, PR=0.044781000 s, comm=0.027183000 s, weak_eff=0.084361671, max_err=1.016440e-20
+[run] np=16 repeat=2/5
+  status=PASS, PR=0.043782000 s, comm=0.026202000 s, weak_eff=0.086286602, max_err=1.016440e-20
+[run] np=16 repeat=3/5
+  status=PASS, PR=0.044061000 s, comm=0.025878000 s, weak_eff=0.085740224, max_err=1.016440e-20
+[run] np=16 repeat=4/5
+  status=PASS, PR=0.043965000 s, comm=0.026385000 s, weak_eff=0.085927442, max_err=1.016440e-20
+[run] np=16 repeat=5/5
+  status=PASS, PR=0.044096000 s, comm=0.025880000 s, weak_eff=0.085672170, max_err=1.016440e-20
+
+[done] wrote results/mpi_weak_scaling_dardel_multinode_directed_raw.csv
+[done] wrote results/mpi_weak_scaling_dardel_multinode_directed.csv
+
+Dardel multi-node experiment outputs:
+results/dardel_multinode_placement.csv
+results/mpi_scaling_dardel_multinode_course_polblogs_directed.csv
+results/mpi_scaling_dardel_multinode_course_polblogs_directed_raw.csv
+results/mpi_scaling_dardel_multinode_synthetic_100k_1m_directed.csv
+results/mpi_scaling_dardel_multinode_synthetic_100k_1m_directed_raw.csv
+results/mpi_weak_scaling_dardel_multinode_directed.csv
+results/mpi_weak_scaling_dardel_multinode_directed_raw.csv

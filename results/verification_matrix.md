@@ -1,5 +1,10 @@
 # Verification matrix
 
+The OpenMP target GPU results below are now supported by a formal
+confirmed-device run on the DD2356 Small GPU server (NVIDIA H100
+`MIG 1g.10gb`). All GPU rows in `results/gpu_correctness_cluster_gpu.csv`
+record `executed_on_device=YES`.
+
 | Dataset | Mode | OpenMP vs serial | GPU vs serial |
 |---|---|---|---|
 | polblogs.csv | directed | PASS | PASS |

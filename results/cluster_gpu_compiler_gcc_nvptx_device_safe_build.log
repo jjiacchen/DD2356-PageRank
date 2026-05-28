@@ -1,0 +1,2 @@
+/usr/bin/ld: /tmp/ccdr7c3I.crtoffloadtable.o: warning: relocation against `__offload_vars_end' in read-only section `.rodata'
+/usr/bin/ld: warning: creating DT_TEXTREL in a PIE

@@ -1,0 +1,5 @@
+results/*.csv
+results/**/*.log
+results/**/*.csv
+results/figures/paper/*.png
+.DS_Store
